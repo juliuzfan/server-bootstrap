@@ -183,45 +183,43 @@ EOF
 if [[ "$ENABLE_PROMPT" == "yes" ]]; then
   log "Configurando prompt Bash moderno en colores para root y ${ADMIN_USER}"
   tmp_prompt="$(mktemp)"
-  cat >"$tmp_prompt" <<EOF
-# Administrado por server-bootstrap — Prompt Bash interactivo moderno
-case "\$-" in
+  printf '# Administrado por server-bootstrap — Prompt Bash interactivo moderno\n__sb_ACCENT="%s"\n' "$accent_code" >"$tmp_prompt"
+  cat >>"$tmp_prompt" <<'EOF'
+case "$-" in
   *i*) ;;
   *) return 0 2>/dev/null || exit 0 ;;
 esac
 
-__sb_ACCENT="${accent_code}"
-
 __sb_git_branch() {
   command -v git >/dev/null 2>&1 || return 0
   local b
-  b="\$(git symbolic-ref --quiet --short HEAD 2>/dev/null || git rev-parse --short HEAD 2>/dev/null)" || return 0
-  [ -n "\$b" ] && printf ' (\001\033[1;38;5;213m\002git:%s\001\033[0m\002)' "\$b"
+  b="$(git symbolic-ref --quiet --short HEAD 2>/dev/null || git rev-parse --short HEAD 2>/dev/null)" || return 0
+  [ -n "$b" ] && printf ' (\001\033[1;38;5;213m\002git:%s\001\033[0m\002)' "$b"
 }
 
 __sb_set_prompt() {
-  local ec=\$?
+  local ec=$?
   local c_rst='\001\033[0m\002'
   local c_dim='\001\033[2m\002'
-  local c_acc='\001\033[1;38;5;'"\${__sb_ACCENT}"'m\002'
+  local c_acc='\001\033[1;38;5;'"${__sb_ACCENT}"'m\002'
   local c_host='\001\033[1;38;5;51m\002'
   local c_dir='\001\033[1;38;5;226m\002'
   local c_ok='\001\033[1;38;5;118m\002'
   local c_err='\001\033[1;38;5;196m\002'
 
-  local c_user="\$c_acc" sym='❯' tag=''
-  if [ "\${EUID:-\$(id -u)}" -eq 0 ]; then
+  local c_user="$c_acc" sym='❯' tag=''
+  if [ "${EUID:-$(id -u)}" -eq 0 ]; then
     c_user='\001\033[1;38;5;196m\002'
     sym='#'
     tag=' \001\033[1;48;5;196;38;5;255m\002 ROOT \001\033[0m\002'
   fi
 
-  local st="\${c_ok}✔\${c_rst}"
-  if [ "\$ec" -ne 0 ]; then
-    st="\${c_err}✘ \${ec}\${c_rst}"
+  local st="${c_ok}✔${c_rst}"
+  if [ "$ec" -ne 0 ]; then
+    st="${c_err}✘ ${ec}${c_rst}"
   fi
 
-  PS1="\n\${c_dim}┌─[\${c_rst}\${ st }\${c_dim}]─[\${c_rst}\A\${c_dim}]─[\${c_rst}\${c_user}\u\${c_rst}\${c_dim}@\${c_rst}\${c_host}\h\${c_rst}\${c_dim}]${tag}─[\${c_rst}\${c_dir}\w\${c_rst}\${c_dim}]\${c_rst}\$(__sb_git_branch)\n\${c_dim}└─\${c_rst}\${c_user}\${sym}\${c_rst} "
+  PS1="\n${c_dim}┌─[${c_rst}${st}${c_dim}]─[${c_rst}\A${c_dim}]─[${c_rst}${c_user}\u${c_rst}${c_dim}@${c_rst}${c_host}\h${c_rst}${c_dim}]${tag}─[${c_rst}${c_dir}\w${c_rst}${c_dim}]${c_rst}$(__sb_git_branch)\n${c_dim}└─${c_rst}${c_user}${sym}${c_rst} "
 }
 
 export LS_OPTIONS='--color=auto'
@@ -253,31 +251,30 @@ if [[ "$ENABLE_MOTD" == "yes" ]]; then
   install_if_changed "$tmp_motd" "$SB_MOTD_FILE" 644 || true
 
   tmp_info="$(mktemp)"
-  cat >"$tmp_info" <<EOF
-#!/usr/bin/env bash
-# Administrado por server-bootstrap — Resumen de estado al iniciar sesión interactiva
-case "\$-" in
+  printf '#!/usr/bin/env bash\n# Administrado por server-bootstrap — Resumen de estado al iniciar sesión interactiva\n__sb_ACCENT="%s"\n' "$accent_code" >"$tmp_info"
+  cat >>"$tmp_info" <<'EOF'
+case "$-" in
   *i*) ;;
   *) return 0 2>/dev/null || exit 0 ;;
 esac
-[ -n "\${__SB_MOTD_SHOWN:-}" ] && return 0
+[ -n "${__SB_MOTD_SHOWN:-}" ] && return 0
 export __SB_MOTD_SHOWN=1
 
 __sb_show_sysinfo() {
-  local acc="\033[1;38;5;${accent_code}m" dim="\033[2m" rst="\033[0m"
+  local acc="\033[1;38;5;${__sb_ACCENT}m" dim="\033[2m" rst="\033[0m"
   local os up load mem disk ip
-  os="\$(. /etc/os-release 2>/dev/null && printf '%s' "\${PRETTY_NAME:-Debian}")"
-  up="\$(uptime -p 2>/dev/null | sed 's/^up //')"
-  load="\$(awk '{print \$1" "\$2" "\$3}' /proc/loadavg 2>/dev/null)"
-  mem="\$(free -h 2>/dev/null | awk '/^Mem:/ {print \$3" / "\$2}')"
-  disk="\$(df -h / 2>/dev/null | awk 'NR==2 {print \$3" / "\$2" ("\$5")"}')"
-  ip="\$(ip -4 route get 1.1.1.1 2>/dev/null | awk '{for(i=1;i<NF;i++) if(\$i=="src"){print \$(i+1); exit}}')"
+  os="$(. /etc/os-release 2>/dev/null && printf '%s' "${PRETTY_NAME:-Debian}")"
+  up="$(uptime -p 2>/dev/null | sed 's/^up //')"
+  load="$(awk '{print $1" "$2" "$3}' /proc/loadavg 2>/dev/null)"
+  mem="$(free -h 2>/dev/null | awk '/^Mem:/ {print $3" / "$2}')"
+  disk="$(df -h / 2>/dev/null | awk 'NR==2 {print $3" / "$2" ("$5")"}')"
+  ip="$(ip -4 route get 1.1.1.1 2>/dev/null | awk '{for(i=1;i<NF;i++) if($i=="src"){print $(i+1); exit}}')"
 
-  printf "  \${dim}──────────────────────────────────────────────────────────────\${rst}\n"
-  printf "  \${acc}OS:\${rst} %-26s \${acc}IP:\${rst}     %s\n" "\${os}" "\${ip:-n/a}"
-  printf "  \${acc}Uptime:\${rst} %-22s \${acc}Carga:\${rst}  %s\n" "\${up:-n/a}" "\${load:-n/a}"
-  printf "  \${acc}RAM:\${rst} %-25s \${acc}Disco /:\${rst} %s\n" "\${mem:-n/a}" "\${disk:-n/a}"
-  printf "  \${dim}──────────────────────────────────────────────────────────────\${rst}\n"
+  printf "  ${dim}──────────────────────────────────────────────────────────────${rst}\n"
+  printf "  ${acc}OS:${rst} %-26s ${acc}IP:${rst}     %s\n" "${os}" "${ip:-n/a}"
+  printf "  ${acc}Uptime:${rst} %-22s ${acc}Carga:${rst}  %s\n" "${up:-n/a}" "${load:-n/a}"
+  printf "  ${acc}RAM:${rst} %-25s ${acc}Disco /:${rst} %s\n" "${mem:-n/a}" "${disk:-n/a}"
+  printf "  ${dim}──────────────────────────────────────────────────────────────${rst}\n"
 }
 __sb_show_sysinfo
 unset -f __sb_show_sysinfo
