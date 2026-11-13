@@ -246,7 +246,6 @@ write_config_file() {
     printf 'ENABLE_UNATTENDED_UPGRADES=%s\n' "$(shell_quote "$ENABLE_UNATTENDED_UPGRADES")"
     printf 'AUTO_REBOOT=%s\n' "$(shell_quote "${AUTO_REBOOT:-no}")"
     printf 'AUTO_REBOOT_TIME=%s\n\n' "$(shell_quote "${AUTO_REBOOT_TIME:-04:00}")"
-    printf 'ENABLE_PROMPT=%s\n' "$(shell_quote "${ENABLE_PROMPT:-yes}")"
     printf 'ENABLE_MOTD=%s\n' "$(shell_quote "${ENABLE_MOTD:-yes}")"
     printf 'MOTD_TEXT=%s\n' "$(shell_quote "${MOTD_TEXT:-}")"
     printf 'MOTD_COLOR=%s\n' "$(shell_quote "${MOTD_COLOR:-lime}")"
@@ -362,18 +361,15 @@ run_config_wizard() {
     fi
   fi
 
-  tui_section "6. Prompt Bash moderno y MOTD con ASCII Art"
-  tui_yesno "¿Configurar prompt Bash moderno en colores para root y ${ADMIN_USER}?" "${ENABLE_PROMPT:-yes}"
-  ENABLE_PROMPT="$TUI_REPLY"
-
+  tui_section "6. MOTD con ASCII Art (el .bashrc y prompt se configuran automáticamente)"
   tui_yesno "¿Configurar MOTD de bienvenida con banner ASCII Art y estado del servidor?" "${ENABLE_MOTD:-yes}"
   ENABLE_MOTD="$TUI_REPLY"
 
-  if [[ "$ENABLE_MOTD" == "yes" || "$ENABLE_PROMPT" == "yes" ]]; then
+  if [[ "$ENABLE_MOTD" == "yes" ]]; then
     tui_input "Texto del banner ASCII Art (vacío = usar hostname '${SERVER_HOSTNAME}')" "${MOTD_TEXT:-$SERVER_HOSTNAME}" valid_motd_text "Máximo 40 caracteres: letras, números, espacio y . _ ! -"
     MOTD_TEXT="$TUI_REPLY"
 
-    tui_select "Color neón del banner y acento del prompt" "${MOTD_COLOR:-lime}" \
+    tui_select "Color neón del banner MOTD" "${MOTD_COLOR:-lime}" \
       "lime|Verde lima neón (default)" \
       "green|Verde matriz" \
       "cyan|Cian eléctrico" \

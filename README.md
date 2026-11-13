@@ -43,8 +43,8 @@ El proceso se divide en fases con pausas de confirmación para que nunca cierres
 ## Qué incluye
 
 ### Sistema y mantenimiento
-- **Actualización limpia**: actualiza paquetes de forma no interactiva conservando configuraciones locales modificadas.
-- **Identidad y hora**: configura el `hostname` (incluyendo `/etc/hosts` para que `sudo` no dé avisos), define la zona horaria (`UTC` por defecto) y activa `chrony` para sincronización NTP.
+- **Actualización y herramientas**: actualiza paquetes de forma no interactiva e instala utilidades esenciales (`htop`, `neovim` como reemplazo del sistema para `vim`/`vi`/`editor`, `wget`, `curl`, `git`, `lsof`, `dnsutils`, `sharutils`).
+- **Identidad, locales y hora**: configura el `hostname` (incluyendo `/etc/hosts`), habilita el locale `en_US.UTF-8`, define la zona horaria (`UTC` por defecto) y activa `chrony` para sincronización NTP.
 - **Parches automáticos**: activa `unattended-upgrades` con opción de reinicio automático en horario programado si el kernel lo requiere.
 
 ### Acceso y seguridad
@@ -54,8 +54,8 @@ El proceso se divide en fases con pausas de confirmación para que nunca cierres
 - **Firewall (UFW)**: bloquea todo el tráfico entrante salvo SSH y los puertos extra que indiques (ej. `80/tcp 443/tcp`), con soporte IPv6 y limpieza automática de reglas antiguas.
 - **Fail2Ban**: protege el puerto SSH usando el backend `systemd` + `nftables` y permite declarar IPs o redes de confianza en lista blanca.
 
-### Experiencia en terminal (Prompt + MOTD)
-- **Prompt Bash moderno**: prompt de dos líneas en colores para `root` (con distintivo rojo `ROOT`) y para el usuario administrador, mostrando el estado del comando anterior (`✔`/`✘`), hora, `usuario@host`, ruta actual y rama Git.
+### Experiencia en terminal (`.bashrc` + Prompt + MOTD)
+- **`.bashrc` y Prompt listos sin preguntar**: instala automáticamente en `root`, el usuario administrador y `/etc/skel` tu `.bashrc` estándar (encabezado Roster.li con año y hostname dinámicos, prompt en colores con rama Git `on <branch>`, aliases de navegación/seguridad/`nvim`/`gst` y la función `password_generator`).
 - **MOTD de bienvenida con ASCII Art**: genera un banner en Bash puro con el nombre del servidor o el texto que elijas, estilo de bloques (`██` o `##`), colores neón o gradientes (`lime`, `cyan`, `magenta`, `toxic`, `synthwave`, `rainbow`, etc.) y un resumen de recursos al iniciar sesión (OS, IP, uptime, carga, RAM y disco).
 
 ---
@@ -109,7 +109,6 @@ Toda la ejecución queda registrada en `/var/log/server-bootstrap.log`.
 | `ENABLE_FAIL2BAN` | `"yes"` | Activa Fail2Ban para SSH (`yes`/`no`). |
 | `FAIL2BAN_IGNOREIP` | `""` | IPs o redes en lista blanca separadas por espacio. |
 | `ENABLE_UNATTENDED_UPGRADES` | `"yes"` | Actualizaciones automáticas (`yes`/`no`), junto a `AUTO_REBOOT` y `AUTO_REBOOT_TIME`. |
-| `ENABLE_PROMPT` | `"yes"` | Instala el prompt Bash en colores para `root` y `ADMIN_USER`. |
 | `ENABLE_MOTD` | `"yes"` | Instala el banner ASCII Art y el panel de estado al iniciar sesión. |
 | `MOTD_TEXT` | `""` | Texto del banner (vacío = usa `SERVER_HOSTNAME`). |
 | `MOTD_COLOR` | `"lime"` | `lime`, `green`, `cyan`, `magenta`, `pink`, `orange`, `yellow`, `purple`, `blue`, `red`, `toxic`, `synthwave`, `rainbow`. |

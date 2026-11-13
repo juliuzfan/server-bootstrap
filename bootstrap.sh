@@ -107,7 +107,7 @@ echo " SSH puerto final: ${SSH_PORT}/tcp"
 echo " Firewall UFW:     ${ENABLE_UFW} ${EXTRA_UFW_PORTS:+(extra: ${EXTRA_UFW_PORTS})}"
 echo " Fail2Ban:         ${ENABLE_FAIL2BAN} ${FAIL2BAN_IGNOREIP:+(ignoreip: ${FAIL2BAN_IGNOREIP})}"
 echo " Auto-upgrades:    ${ENABLE_UNATTENDED_UPGRADES} (auto-reboot: ${AUTO_REBOOT})"
-echo " Prompt & MOTD:    prompt=${ENABLE_PROMPT}, motd=${ENABLE_MOTD} (${MOTD_COLOR}/${MOTD_ART_STYLE})"
+echo " Shell & MOTD:     .bashrc Roster.li (activo), motd=${ENABLE_MOTD} (${MOTD_COLOR}/${MOTD_ART_STYLE})"
 echo "=================================================================="
 
 if is_interactive; then

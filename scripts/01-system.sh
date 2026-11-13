@@ -31,8 +31,8 @@ apt-get -y upgrade \
 
 # Paquetes base + dependencias requeridas por las opciones activadas.
 PKGS=(
-  sudo openssh-server ca-certificates curl wget git vim nano
-  chrony dnsutils iproute2 lsof procps
+  sudo openssh-server ca-certificates curl wget git neovim nano htop
+  locales sharutils chrony dnsutils iproute2 lsof procps
 )
 if [[ "$ENABLE_UFW" == "yes" ]]; then
   PKGS+=(ufw)
@@ -45,6 +45,26 @@ if [[ "$ENABLE_UNATTENDED_UPGRADES" == "yes" ]]; then
   PKGS+=(unattended-upgrades apt-listchanges)
 fi
 ensure_packages "${PKGS[@]}"
+
+log "Reemplazando vim por Neovim a nivel de sistema"
+if pkg_installed vim || pkg_installed vim-tiny; then
+  apt-get purge -y vim vim-runtime vim-tiny >/dev/null 2>&1 || true
+fi
+if command -v nvim >/dev/null 2>&1; then
+  nvim_bin="$(command -v nvim)"
+  update-alternatives --install /usr/bin/vim vim "$nvim_bin" 110 >/dev/null 2>&1 || true
+  update-alternatives --set vim "$nvim_bin" >/dev/null 2>&1 || true
+  update-alternatives --install /usr/bin/editor editor "$nvim_bin" 110 >/dev/null 2>&1 || true
+  update-alternatives --set editor "$nvim_bin" >/dev/null 2>&1 || true
+  update-alternatives --install /usr/bin/vi vi "$nvim_bin" 110 >/dev/null 2>&1 || true
+  update-alternatives --set vi "$nvim_bin" >/dev/null 2>&1 || true
+fi
+
+log "Asegurando locale en_US.UTF-8"
+if [[ -f /etc/locale.gen ]]; then
+  sed -i 's/^#[[:space:]]*\(en_US\.UTF-8[[:space:]]\+UTF-8\)/\1/' /etc/locale.gen
+  locale-gen en_US.UTF-8 >/dev/null 2>&1 || true
+fi
 
 log "Configurando zona horaria (${TIMEZONE}) y hostname (${SERVER_HOSTNAME})"
 if [[ "$(timedatectl show -p Timezone --value 2>/dev/null || true)" != "$TIMEZONE" ]]; then
@@ -146,97 +166,95 @@ EOF
   systemctl enable --now apt-daily.timer apt-daily-upgrade.timer
 fi
 
-# ---------------------------------- Prompt Bash moderno (root + admin) ---
+# ---------------------------------- .bashrc (root + admin) ---
 install -d -m 755 "$SB_STATE_DIR"
 accent_code="$(motd_accent "$MOTD_COLOR")"
+rm -f "$SB_PROMPT_FILE"
 
-configure_bashrc_hook() {
+install_user_bashrc() {
   local rc_file=$1 owner=$2
-  local begin="# >>> server-bootstrap prompt >>>"
-  local end="# <<< server-bootstrap prompt <<<"
-  touch "$rc_file"
-  chown "$owner:$owner" "$rc_file"
-  chmod 644 "$rc_file"
-
-  local tmp_rc
+  local cur_year tmp_rc
+  cur_year="$(date +%Y)"
   tmp_rc="$(mktemp)"
-  awk -v b="$begin" -v e="$end" '
-    $0 == b { skip = 1; next }
-    $0 == e { skip = 0; next }
-    !skip { print }
-  ' "$rc_file" >"$tmp_rc"
 
-  if [[ "$ENABLE_PROMPT" == "yes" ]]; then
-    cat >>"$tmp_rc" <<EOF
-${begin}
-if [ -r "${SB_PROMPT_FILE}" ]; then
-  . "${SB_PROMPT_FILE}"
-fi
-${end}
-EOF
-  fi
-  cat "$tmp_rc" >"$rc_file"
-  rm -f "$tmp_rc"
-  chown "$owner:$owner" "$rc_file"
-}
+  printf '# Copyright (%s) - Roster.li\n# @website roster.li\n# Hostname: %s\n\n' \
+    "$cur_year" "$SERVER_HOSTNAME" >"$tmp_rc"
 
-if [[ "$ENABLE_PROMPT" == "yes" ]]; then
-  log "Configurando prompt Bash moderno en colores para root y ${ADMIN_USER}"
-  tmp_prompt="$(mktemp)"
-  printf '# Administrado por server-bootstrap — Prompt Bash interactivo moderno\n__sb_ACCENT="%s"\n' "$accent_code" >"$tmp_prompt"
-  cat >>"$tmp_prompt" <<'EOF'
-case "$-" in
+  cat >>"$tmp_rc" <<'EOF'
+# If not running interactively, don't do anything
+case $- in
   *i*) ;;
-  *) return 0 2>/dev/null || exit 0 ;;
+  *) return ;;
 esac
 
-__sb_git_branch() {
-  command -v git >/dev/null 2>&1 || return 0
-  local b
-  b="$(git symbolic-ref --quiet --short HEAD 2>/dev/null || git rev-parse --short HEAD 2>/dev/null)" || return 0
-  [ -n "$b" ] && printf ' (\001\033[1;38;5;213m\002git:%s\001\033[0m\002)' "$b"
+# Locales
+export LANGUAGE=en_US.UTF-8
+export LANG=en_US.UTF-8
+export LC_ALL=en_US.UTF-8
+
+# Default editor
+export EDITOR=nvim
+export VISUAL=nvim
+
+parse_git_branch() {
+  #git branch 2> /dev/null | sed -e '/^[^*]/d' -e 's/* \(.*\)/(\1)/'
+  git branch 2> /dev/null | sed -e '/^[^*]/d' -e 's/* \(.*\)/ on \1/'
 }
 
-__sb_set_prompt() {
-  local ec=$?
-  local c_rst='\001\033[0m\002'
-  local c_dim='\001\033[2m\002'
-  local c_acc='\001\033[1;38;5;'"${__sb_ACCENT}"'m\002'
-  local c_host='\001\033[1;38;5;51m\002'
-  local c_dir='\001\033[1;38;5;226m\002'
-  local c_ok='\001\033[1;38;5;118m\002'
-  local c_err='\001\033[1;38;5;196m\002'
-
-  local c_user="$c_acc" sym='❯' tag=''
-  if [ "${EUID:-$(id -u)}" -eq 0 ]; then
-    c_user='\001\033[1;38;5;196m\002'
-    sym='#'
-    tag=' \001\033[1;48;5;196;38;5;255m\002 ROOT \001\033[0m\002'
-  fi
-
-  local st="${c_ok}✔${c_rst}"
-  if [ "$ec" -ne 0 ]; then
-    st="${c_err}✘ ${ec}${c_rst}"
-  fi
-
-  PS1="\n${c_dim}┌─[${c_rst}${st}${c_dim}]─[${c_rst}\A${c_dim}]─[${c_rst}${c_user}\u${c_rst}${c_dim}@${c_rst}${c_host}\h${c_rst}${c_dim}]${tag}─[${c_rst}${c_dir}\w${c_rst}${c_dim}]${c_rst}$(__sb_git_branch)\n${c_dim}└─${c_rst}${c_user}${sym}${c_rst} "
-}
+# Better Prompt
+PS1='${debian_chroot:+($debian_chroot)}\[\e[1;31m\]\u\[\e[1;33m\]@\[\e[1;36m\]\H \[\e[1;33m\]\w \[\e[1;35m\]\$\[\033[32m\]$(parse_git_branch)\[\033[m\]\[\e[0m\] '
 
 export LS_OPTIONS='--color=auto'
-alias ls='ls --color=auto'
-alias ll='ls -lah --color=auto'
-alias la='ls -A --color=auto'
-alias grep='grep --color=auto'
-
-PROMPT_COMMAND=__sb_set_prompt
-EOF
-  install_if_changed "$tmp_prompt" "$SB_PROMPT_FILE" 644 || true
-else
-  rm -f "$SB_PROMPT_FILE"
+if command -v dircolors >/dev/null 2>&1; then
+  eval "$(dircolors -b)"
 fi
 
-configure_bashrc_hook "/root/.bashrc" "root"
-configure_bashrc_hook "${ADMIN_HOME}/.bashrc" "$ADMIN_USER"
+# Traversing Alias
+alias ls='ls $LS_OPTIONS --group-directories-first'
+alias ll='ls $LS_OPTIONS -l'
+alias l='ls $LS_OPTIONS -lA'
+alias c='clear'
+alias ..='cd ..'
+alias ...='cd ../../'
+
+# Avoid making mistakes:
+alias rm='rm -i'
+alias cp='cp -i'
+alias mv='mv -i'
+
+# Shortcuts
+alias vim='nvim'
+alias v='nvim'
+
+# GIT
+alias gst='git status'
+
+# Password Generator
+password_generator() {
+  local pass len=${1:-20}
+  if ! type uuencode >/dev/null 2>&1; then
+    if [ "${EUID:-$(id -u)}" -eq 0 ]; then
+      apt-get update && apt-get install -y --no-install-recommends sharutils
+    else
+      sudo apt-get update && sudo apt-get install -y --no-install-recommends sharutils
+    fi
+  fi
+  pass=$(dd if=/dev/urandom bs=256 count=1 2> /dev/null | uuencode -m - | sed -ne 2p | cut -c-"$len" | sed -e "s:/:%:g" -e "s/@/\$/g" -e "s/\"/#/g")
+  echo "$pass"
+}
+EOF
+
+  if [[ -f "$rc_file" ]] && ! cmp -s "$tmp_rc" "$rc_file"; then
+    backup_file "$rc_file"
+  fi
+  install -m 644 -o "$owner" -g "$owner" "$tmp_rc" "$rc_file"
+  rm -f "$tmp_rc"
+}
+
+log "Configurando .bashrc y prompt para root y ${ADMIN_USER}"
+install_user_bashrc "/root/.bashrc" "root"
+install_user_bashrc "${ADMIN_HOME}/.bashrc" "$ADMIN_USER"
+install_user_bashrc "/etc/skel/.bashrc" "root"
 
 # ---------------------------------- MOTD con ASCII Art + estado en vivo ---
 if [[ "$ENABLE_MOTD" == "yes" ]]; then

@@ -96,9 +96,16 @@ else
 fi
 
 echo
-echo "===== PERSONALIZACIÓN (PROMPT & MOTD) ====="
-if [[ "$ENABLE_PROMPT" == "yes" ]]; then
-  [[ -f "$SB_PROMPT_FILE" ]] && check_ok "Prompt Bash moderno instalado (${SB_PROMPT_FILE})" || check_fail "Falta ${SB_PROMPT_FILE}"
+echo "===== PERSONALIZACIÓN (.bashrc, NEOVIM & MOTD) ====="
+if command -v nvim >/dev/null 2>&1; then
+  check_ok "Neovim instalado ($(nvim --version | head -n1))"
+else
+  check_fail "Neovim no está instalado"
+fi
+if grep -q "Roster.li" /root/.bashrc 2>/dev/null && grep -q "Roster.li" "${ADMIN_HOME}/.bashrc" 2>/dev/null; then
+  check_ok ".bashrc y prompt configurados en /root/.bashrc y ${ADMIN_HOME}/.bashrc"
+else
+  check_fail "Falta configuración de .bashrc en root o ${ADMIN_USER}"
 fi
 if [[ "$ENABLE_MOTD" == "yes" ]]; then
   [[ -f "$SB_MOTD_FILE" && -f "$SB_INFO_SCRIPT" ]] && check_ok "MOTD ASCII Art instalado (color: ${MOTD_COLOR}, estilo: ${MOTD_ART_STYLE})" || check_fail "Falta MOTD o script de estado"
