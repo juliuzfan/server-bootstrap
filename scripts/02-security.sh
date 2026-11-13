@@ -7,6 +7,19 @@ ROOT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
 # shellcheck source=scripts/common.sh
 source "${ROOT_DIR}/scripts/common.sh"
 
+TRANSITION_ONLY="${SB_PORT_TRANSITION_ONLY:-0}"
+while (( $# > 0 )); do
+  case "$1" in
+    --transition-only)
+      TRANSITION_ONLY=1
+      shift
+      ;;
+    *)
+      die "Opción desconocida en 02-security.sh: $1"
+      ;;
+  esac
+done
+
 require_root
 load_config
 validate_config
@@ -167,9 +180,18 @@ if [[ "$ENABLE_UFW" == "yes" ]]; then
   ufw --force enable >/dev/null
 fi
 
-# 2) Aplicamos endurecimiento SSH. Si hay cambio de puerto y estamos en modo interactivo,
-#    primero escuchamos en ambos puertos, pedimos probar el nuevo y luego cerramos el antiguo.
-if (( ${#transition_ports[@]} > 1 )) && is_interactive; then
+# 2) Aplicamos endurecimiento SSH. Si hay cambio de puerto:
+#    - Con --transition-only (modo autónomo): abre ambos puertos y sale para permitir verificación externa.
+#    - En modo interactivo: abre ambos puertos, pide confirmar y luego cierra el anterior.
+if (( ${#transition_ports[@]} > 1 )) && (( TRANSITION_ONLY == 1 )); then
+  log "Transición segura de puerto SSH (manteniendo activos: ${transition_ports[*]})"
+  apply_sshd_dropin "${transition_ports[@]}"
+  if [[ "$ENABLE_UFW" == "yes" ]]; then
+    sync_ufw_rules "${transition_ports[@]}"
+  fi
+  log "Puertos de transición activos (${transition_ports[*]}). Verifica conectividad al puerto ${SSH_PORT} y vuelve a ejecutar 02-security.sh para finalizar."
+  exit 0
+elif (( ${#transition_ports[@]} > 1 )) && is_interactive; then
   log "Transición segura de puerto SSH (${transition_ports[*]})"
   apply_sshd_dropin "${transition_ports[@]}"
   srv_ip="$(primary_ip)"

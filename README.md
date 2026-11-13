@@ -118,17 +118,53 @@ Toda la ejecución queda registrada en `/var/log/server-bootstrap.log`.
 
 ---
 
+## Uso con Agentes IA (Autónomo y Remoto)
+
+El repositorio incluye un **Agent Skill** (`.agents/skills/server-bootstrap/SKILL.md`) y un **orquestador remoto** (`scripts/remote-bootstrap.sh`) para que cualquier agente IA compatible (Antigravity, Claude Code, Codex, Gemini CLI, etc.) configure un servidor Debian 13 a distancia pasando únicamente IP/DNS, credencial inicial (password o llave SSH) e indicaciones en lenguaje natural.
+
+- **Instalación global del skill** (para usarlo desde cualquier proyecto):
+
+```bash
+bash scripts/install-skill.sh
+```
+
+- **Ejecución directa del orquestador remoto**:
+
+```bash
+bash scripts/remote-bootstrap.sh \
+  --host 203.0.113.10 \
+  --ssh-user root \
+  --init-pass-file /ruta/segura/init_pass \
+  --hostname srv-prod-01 \
+  --timezone America/Mexico_City \
+  --admin-user adminops \
+  --sudo-mode password \
+  --admin-pass-file /ruta/segura/admin_pass \
+  --pubkey ~/.ssh/id_ed25519.pub \
+  --target-ssh-port 2222 \
+  --extra-ufw-ports "80/tcp 443/tcp"
+```
+
+El orquestador no requiere `git` ni `sshpass` en el servidor destino, no deja contraseñas en claro en `config.env` ni en `/var/log/server-bootstrap.log`, y valida el acceso SSH + `sudo` desde fuera antes de endurecer OpenSSH o cerrar el puerto anterior.
+
+---
+
 ## Estructura del proyecto
 
 ```text
 server-bootstrap/
-├── bootstrap.sh         # Orquestador principal y CLI
-├── config.env.example   # Plantilla comentada de configuración
-├── README.md            # Documentación
+├── .agents/skills/server-bootstrap/
+│   └── SKILL.md            # Skill estándar para agentes IA
+├── AGENTS.md               # Guía rápida para agentes en el repo
+├── bootstrap.sh            # Orquestador principal y CLI en el servidor
+├── config.env.example      # Plantilla comentada de configuración
+├── README.md               # Documentación
 └── scripts/
-    ├── common.sh        # Validaciones, utilidades y manejo de estado
-    ├── tui.sh           # Asistente TUI y motor de ASCII Art en Bash puro
-    ├── 01-system.sh     # Paquetes, usuario, sudo, llaves, prompt y MOTD
-    ├── 02-security.sh   # Endurecimiento SSH, transición de puerto, UFW y Fail2Ban
-    └── 03-verify.sh     # Diagnóstico y resumen de verificación
+    ├── common.sh           # Validaciones, utilidades y manejo de estado
+    ├── tui.sh              # Asistente TUI y motor de ASCII Art en Bash puro
+    ├── remote-bootstrap.sh # Orquestador remoto autónomo (SSH + fases)
+    ├── install-skill.sh    # Instalador global del skill para agentes IA
+    ├── 01-system.sh        # Paquetes, usuario, sudo, llaves, prompt y MOTD
+    ├── 02-security.sh      # Endurecimiento SSH, transición de puerto, UFW y Fail2Ban
+    └── 03-verify.sh        # Diagnóstico y resumen de verificación
 ```
