@@ -31,6 +31,8 @@ Conexión inicial y secretos (las contraseñas NUNCA se pasan como flags CLI):
   --admin-ssh-key FILE         Llave privada para verificar el nuevo ADMIN_USER (si difiere)
   --init-pass-file FILE        Archivo (chmod 600) con contraseña inicial SSH/sudo (o env SB_INIT_PASS)
   --admin-pass-file FILE       Archivo (chmod 600) con contraseña para ADMIN_USER (o env SB_ADMIN_PASS)
+  --prompt-init-pass           Abre un modal nativo del SO (macOS/Linux/Windows/WSL) para pedir la contraseña inicial
+  --prompt-admin-pass          Abre un modal nativo del SO para pedir y confirmar la contraseña sudo de ADMIN_USER
 
 Configuración del servidor (sobreescribe --config si se pasan ambos):
   --config FILE                Archivo config.env base opcional
@@ -84,6 +86,8 @@ INIT_PASS_FILE="${SB_INIT_PASS_FILE:-}"
 ADMIN_PASS_FILE="${SB_ADMIN_PASS_FILE:-}"
 INIT_PASS="${SB_INIT_PASS:-}"
 ADMIN_PASS="${SB_ADMIN_PASS:-}"
+PROMPT_INIT_PASS=0
+PROMPT_ADMIN_PASS=0
 BASE_CONFIG=""
 
 CFG_HOSTNAME=""
@@ -124,6 +128,8 @@ while (( $# > 0 )); do
     --admin-ssh-key) ADMIN_SSH_KEY="$2"; shift 2 ;;
     --init-pass-file) INIT_PASS_FILE="$2"; shift 2 ;;
     --admin-pass-file) ADMIN_PASS_FILE="$2"; shift 2 ;;
+    --prompt-init-pass) PROMPT_INIT_PASS=1; shift ;;
+    --prompt-admin-pass) PROMPT_ADMIN_PASS=1; shift ;;
     --config) BASE_CONFIG="$2"; shift 2 ;;
     --hostname) CFG_HOSTNAME="$2"; SET_HOSTNAME=1; shift 2 ;;
     --server-ip) CFG_SERVER_IP="$2"; SET_SERVER_IP=1; shift 2 ;;
@@ -240,8 +246,8 @@ fi
 
 (( ${#RESOLVED_KEYS[@]} > 0 )) || die "Debes proporcionar al menos una llave pública (--pubkey o en --config)."
 
-if [[ "$SUDO_MODE" == "password" && -z "$ADMIN_PASSWORD_HASH" && -z "$ADMIN_PASS" ]]; then
-  die "SUDO_MODE=password requiere --admin-pass-file / SB_ADMIN_PASS o --admin-password-hash."
+if [[ "$SUDO_MODE" == "password" && -z "$ADMIN_PASSWORD_HASH" && -z "$ADMIN_PASS" && "$PROMPT_ADMIN_PASS" -eq 0 ]]; then
+  die "SUDO_MODE=password requiere --prompt-admin-pass, --admin-pass-file / SB_ADMIN_PASS o --admin-password-hash."
 fi
 
 # ---------------------------------------------- entorno temporal y cleanup ---
@@ -261,6 +267,28 @@ cleanup() {
   exit "$rc"
 }
 trap cleanup EXIT
+
+# Si se solicitó captura modal (--prompt-init-pass / --prompt-admin-pass), abre el diálogo nativo del SO.
+if (( PROMPT_INIT_PASS == 1 )) && [[ -z "$INIT_PASS" ]]; then
+  log "Solicitando contraseña inicial (${INIT_SSH_USER}@${HOST}) mediante diálogo seguro del SO..."
+  bash "${SCRIPT_DIR}/prompt-secret.sh" \
+    --title "Server Bootstrap — Acceso inicial (${HOST})" \
+    --prompt "Contraseña actual de '${INIT_SSH_USER}' para conectar a ${HOST}:${INIT_SSH_PORT}:" \
+    --out "${WORK_DIR}/prompted_init_pass"
+  INIT_PASS="$(read_secret_file "${WORK_DIR}/prompted_init_pass")"
+  rm -f "${WORK_DIR}/prompted_init_pass"
+fi
+
+if (( PROMPT_ADMIN_PASS == 1 )) && [[ -z "$ADMIN_PASS" ]]; then
+  log "Solicitando nueva contraseña sudo para '${ADMIN_USER}' en ${HOST} mediante diálogo seguro del SO..."
+  bash "${SCRIPT_DIR}/prompt-secret.sh" \
+    --title "Server Bootstrap — Sudo para ${ADMIN_USER} (${HOST})" \
+    --prompt "Define la contraseña de sudo para el usuario '${ADMIN_USER}' en ${HOST}:" \
+    --confirm \
+    --out "${WORK_DIR}/prompted_admin_pass"
+  ADMIN_PASS="$(read_secret_file "${WORK_DIR}/prompted_admin_pass")"
+  rm -f "${WORK_DIR}/prompted_admin_pass"
+fi
 
 # Prepara SSH_ASKPASS si se dio contraseña inicial (sin usar sshpass ni exponer en ps).
 ASKPASS_BIN=""
