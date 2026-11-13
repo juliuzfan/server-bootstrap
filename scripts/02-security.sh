@@ -48,9 +48,11 @@ declare -a transition_ports=()
 for p in $prev_ports "$SSH_PORT"; do
   [[ "$p" =~ ^[0-9]+$ ]] || continue
   already=0
-  for existing in "${transition_ports[@]:-}"; do
-    [[ "$existing" == "$p" ]] && already=1
-  done
+  if (( ${#transition_ports[@]} > 0 )); then
+    for existing in "${transition_ports[@]}"; do
+      [[ "$existing" == "$p" ]] && already=1
+    done
+  fi
   (( already == 0 )) && transition_ports+=("$p")
 done
 
@@ -142,9 +144,12 @@ sync_ufw_rules() {
     ' | sort -rn
   )
 
-  for num in "${to_delete[@]:-}"; do
-    ufw --force delete "$num" >/dev/null || true
-  done
+  if (( ${#to_delete[@]} > 0 )); then
+    for num in "${to_delete[@]}"; do
+      [[ "$num" =~ ^[0-9]+$ ]] || continue
+      ufw --force delete "$num" >/dev/null || true
+    done
+  fi
 }
 
 # 1) Si queremos activar UFW, primero abrimos los puertos de transición ANTES de reiniciar sshd.
