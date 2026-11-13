@@ -15,7 +15,7 @@ while (( $# > 0 )); do
       shift
       ;;
     *)
-      die "Opción desconocida en 02-security.sh: $1"
+      die "Unknown option in 02-security.sh: $1"
       ;;
   esac
 done
@@ -97,19 +97,19 @@ EOF
   install_if_changed "$tmp_cfg" "$SB_SSH_DROPIN" 644 || true
 
   if ! sshd -t; then
-    warn "sshd -t falló. Restaurando configuración SSH anterior."
+    warn "sshd -t failed. Restoring previous SSH configuration."
     if [[ -n "${SB_LAST_BACKUP:-}" && -f "$SB_LAST_BACKUP" ]]; then
       cp -a "$SB_LAST_BACKUP" "$SB_SSH_DROPIN"
     else
       rm -f "$SB_SSH_DROPIN"
     fi
-    die "Configuración SSH inválida; no se reinició el servicio ssh."
+    die "Invalid SSH configuration; ssh service was not restarted."
   fi
 
   systemctl restart ssh
-  systemctl is-active --quiet ssh || die "El servicio ssh no quedó activo tras reiniciar."
+  systemctl is-active --quiet ssh || die "ssh service is not active after restart."
   for p in "${ports[@]}"; do
-    wait_port_listen "$p" || die "sshd no está escuchando en el puerto ${p}/tcp."
+    wait_port_listen "$p" || die "sshd is not listening on port ${p}/tcp."
   done
 }
 
@@ -168,7 +168,7 @@ sync_ufw_rules() {
 # 1) Si queremos activar UFW, primero abrimos los puertos de transición ANTES de reiniciar sshd.
 if [[ "$ENABLE_UFW" == "yes" ]]; then
   ensure_packages ufw
-  log "Configurando firewall UFW (entrada DENY, salida ALLOW)"
+  log "Configuring UFW firewall (incoming DENY, outgoing ALLOW)"
   if grep -q '^IPV6=' /etc/default/ufw; then
     sed -i 's/^IPV6=.*/IPV6=yes/' /etc/default/ufw
   else
@@ -184,24 +184,24 @@ fi
 #    - Con --transition-only (modo autónomo): abre ambos puertos y sale para permitir verificación externa.
 #    - En modo interactivo: abre ambos puertos, pide confirmar y luego cierra el anterior.
 if (( ${#transition_ports[@]} > 1 )) && (( TRANSITION_ONLY == 1 )); then
-  log "Transición segura de puerto SSH (manteniendo activos: ${transition_ports[*]})"
+  log "Safe SSH port transition (keeping active: ${transition_ports[*]})"
   apply_sshd_dropin "${transition_ports[@]}"
   if [[ "$ENABLE_UFW" == "yes" ]]; then
     sync_ufw_rules "${transition_ports[@]}"
   fi
-  log "Puertos de transición activos (${transition_ports[*]}). Verifica conectividad al puerto ${SSH_PORT} y vuelve a ejecutar 02-security.sh para finalizar."
+  log "Transition ports active (${transition_ports[*]}). Verify connectivity to port ${SSH_PORT} and re-run 02-security.sh to finalize."
   exit 0
 elif (( ${#transition_ports[@]} > 1 )) && is_interactive; then
-  log "Transición segura de puerto SSH (${transition_ports[*]})"
+  log "Safe SSH port transition (${transition_ports[*]})"
   apply_sshd_dropin "${transition_ports[@]}"
   srv_ip="$(primary_ip)"
   echo
-  echo "SSH está escuchando temporalmente en: ${transition_ports[*]}"
+  echo "SSH is temporarily listening on: ${transition_ports[*]}"
   echo "Prueba AHORA en otra terminal el nuevo puerto ${SSH_PORT}:"
   echo "  ssh -p ${SSH_PORT} ${ADMIN_USER}@${srv_ip}"
   echo
-  if confirm_yes "¿Confirmas que pudiste entrar por el puerto ${SSH_PORT}?"; then
-    log "Cerrando puerto(s) SSH anterior(es) y dejando únicamente ${SSH_PORT}/tcp"
+  if confirm_yes "Do you confirm that you were able to connect on port ${SSH_PORT}?"; then
+    log "Closing previous SSH port(s) and leaving only ${SSH_PORT}/tcp"
     apply_sshd_dropin "$SSH_PORT"
     if [[ "$ENABLE_UFW" == "yes" ]]; then
       sync_ufw_rules "$SSH_PORT"
@@ -222,7 +222,7 @@ fi
 # 3) Fail2Ban con dependencias systemd + nftables y lista blanca opcional.
 if [[ "$ENABLE_FAIL2BAN" == "yes" ]]; then
   ensure_packages fail2ban python3-systemd nftables
-  log "Configurando Fail2Ban para SSH (puerto ${SSH_PORT})"
+  log "Configuring Fail2Ban for SSH (port ${SSH_PORT})"
   ignore_line="127.0.0.1/8 ::1"
   if [[ -n "$FAIL2BAN_IGNOREIP" ]]; then
     ignore_line="${ignore_line} ${FAIL2BAN_IGNOREIP}"
@@ -247,8 +247,8 @@ EOF
   else
     systemctl enable --now fail2ban >/dev/null
   fi
-  systemctl is-active --quiet fail2ban || die "Fail2Ban no quedó activo."
+  systemctl is-active --quiet fail2ban || die "Fail2Ban is not active."
 fi
 
 log "Fase 02 (endurecimiento y firewall) completada."
-echo "IMPORTANTE: conserva abierta tu sesión actual hasta verificar una nueva conexión SSH."
+echo "IMPORTANT: keep your current session open until you verify a new SSH connection."

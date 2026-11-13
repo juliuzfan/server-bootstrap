@@ -6,38 +6,38 @@ set -euo pipefail
 
 usage() {
   cat <<'EOF'
-Uso: bash scripts/prompt-secret.sh --out <ARCHIVO_DESTINO> [opciones]
+Usage: bash scripts/prompt-secret.sh --out <DEST_FILE> [options]
 
-Opciones:
-  --out FILE        Ruta donde se guardará el secreto con permisos 0600 (requerido).
-  --title TEXT      Título de la ventana modal (defecto: "Server Bootstrap — Credencial segura").
-  --prompt TEXT     Mensaje descriptivo para el usuario (defecto: "Introduce la contraseña:").
-  --confirm         Pide confirmar la contraseña una segunda vez (útil al definir una clave nueva).
-  --allow-tty       Permite caer a lectura oculta en /dev/tty si no hay entorno gráfico disponible.
-  -h, --help        Muestra esta ayuda.
+Options:
+  --out FILE        Path where the secret will be saved with 0600 permissions (required).
+  --title TEXT      Modal window title (default: "Server Bootstrap — Secure Credential").
+  --prompt TEXT     Descriptive prompt for the user (default: "Enter password:").
+  --confirm         Ask to confirm the password a second time (useful when setting a new password).
+  --allow-tty       Allow falling back to hidden input on /dev/tty if no GUI is available.
+  -h, --help        Show this help.
 EOF
 }
 
 OUT_FILE=""
-TITLE="Server Bootstrap — Credencial segura"
-PROMPT_TEXT="Introduce la contraseña:"
+TITLE="Server Bootstrap — Secure Credential"
+PROMPT_TEXT="Enter password:"
 CONFIRM=0
 ALLOW_TTY=1
 
 while (( $# > 0 )); do
   case "$1" in
     --out)
-      [[ $# -ge 2 ]] || { echo "[ERROR] Falta argumento para --out" >&2; exit 1; }
+      [[ $# -ge 2 ]] || { echo "[ERROR] Missing argument for --out" >&2; exit 1; }
       OUT_FILE="$2"
       shift 2
       ;;
     --title)
-      [[ $# -ge 2 ]] || { echo "[ERROR] Falta argumento para --title" >&2; exit 1; }
+      [[ $# -ge 2 ]] || { echo "[ERROR] Missing argument for --title" >&2; exit 1; }
       TITLE="$2"
       shift 2
       ;;
     --prompt)
-      [[ $# -ge 2 ]] || { echo "[ERROR] Falta argumento para --prompt" >&2; exit 1; }
+      [[ $# -ge 2 ]] || { echo "[ERROR] Missing argument for --prompt" >&2; exit 1; }
       PROMPT_TEXT="$2"
       shift 2
       ;;
@@ -58,7 +58,7 @@ while (( $# > 0 )); do
       exit 0
       ;;
     *)
-      echo "[ERROR] Opción desconocida: $1 (usa --help)" >&2
+      echo "[ERROR] Unknown option: $1 (use --help)" >&2
       exit 1
       ;;
   esac
@@ -95,17 +95,17 @@ on run argv
   try
     tell application "SystemUIServer"
       activate
-      set response to display dialog dlgPrompt default answer "" with hidden answer buttons {"Cancelar", "Continuar"} default button "Continuar" cancel button "Cancelar" with title dlgTitle
+      set response to display dialog dlgPrompt default answer "" with hidden answer buttons {"Cancel", "Continue"} default button "Continue" cancel button "Cancel" with title dlgTitle
     end tell
   on error errMsg number errNum
     if errNum is -128 then
-      error "Operación cancelada por el usuario." number 1
+      error "Operation cancelled by user." number 1
     end if
-    set response to display dialog dlgPrompt default answer "" with hidden answer buttons {"Cancelar", "Continuar"} default button "Continuar" cancel button "Cancelar" with title dlgTitle
+    set response to display dialog dlgPrompt default answer "" with hidden answer buttons {"Cancel", "Continue"} default button "Continue" cancel button "Cancel" with title dlgTitle
   end try
   set secretValue to text returned of response
   if secretValue is "" then
-    error "La contraseña no puede estar vacía." number 2
+    error "Password cannot be empty." number 2
   end if
   return secretValue
 end run
@@ -162,7 +162,7 @@ ask_windows() {
     $cancelButton = New-Object System.Windows.Forms.Button
     $cancelButton.Location = New-Object System.Drawing.Point(328, 106)
     $cancelButton.Size = New-Object System.Drawing.Size(80, 28)
-    $cancelButton.Text = "Cancelar"
+    $cancelButton.Text = "Cancel"
     $cancelButton.DialogResult = [System.Windows.Forms.DialogResult]::Cancel
     $form.CancelButton = $cancelButton
     $form.Controls.Add($cancelButton)
@@ -171,11 +171,11 @@ ask_windows() {
     $result = $form.ShowDialog()
 
     if ($result -ne [System.Windows.Forms.DialogResult]::OK) {
-      [Console]::Error.WriteLine("Operación cancelada por el usuario.")
+      [Console]::Error.WriteLine("Operation cancelled by user.")
       exit 1
     }
     if ([string]::IsNullOrEmpty($textBox.Text)) {
-      [Console]::Error.WriteLine("La contraseña no puede estar vacía.")
+      [Console]::Error.WriteLine("Password cannot be empty.")
       exit 2
     }
     [Console]::Out.Write($textBox.Text)
@@ -207,7 +207,7 @@ root.withdraw()
 root.attributes("-topmost", True)
 val = simpledialog.askstring(
     os.environ.get("PROMPT_MODAL_TITLE", "Credencial"),
-    os.environ.get("PROMPT_MODAL_TEXT", "Contraseña:"),
+    os.environ.get("PROMPT_MODAL_TEXT", "Password:"),
     show="*",
     parent=root,
 )
@@ -224,7 +224,7 @@ PY
   fi
 
   if [[ -z "$out" ]]; then
-    echo "[ERROR] La contraseña no puede estar vacía." >&2
+    echo "[ERROR] Password cannot be empty." >&2
     return 1
   fi
   printf '%s' "$out"
@@ -239,7 +239,7 @@ ask_tty() {
   IFS= read -rs val </dev/tty || { printf '\n' >/dev/tty; return 1; }
   printf '\n' >/dev/tty
   if [[ -z "$val" ]]; then
-    echo "[ERROR] La contraseña no puede estar vacía." >&2
+    echo "[ERROR] Password cannot be empty." >&2
     return 1
   fi
   printf '%s' "$val"
@@ -263,17 +263,17 @@ prompt_once() {
 }
 
 SECRET_VAL="$(prompt_once "$TITLE" "$PROMPT_TEXT")" || {
-  echo "[ERROR] No se pudo obtener la contraseña (cancelado por el usuario o sin acceso a GUI/TTY). Si ejecutas desde un agente IA, asegúrate de correr fuera del sandbox (BypassSandbox / escalated permissions)." >&2
+  echo "[ERROR] Could not obtain password (cancelled by user or no GUI/TTY access). If running from an AI agent, make sure to run outside the sandbox (BypassSandbox / escalated permissions)." >&2
   exit 1
 }
 
 if (( CONFIRM == 1 )); then
-  SECRET_CONFIRM="$(prompt_once "$TITLE" "Confirma la contraseña:")" || {
-    echo "[ERROR] Confirmación cancelada." >&2
+  SECRET_CONFIRM="$(prompt_once "$TITLE" "Confirm password:")" || {
+    echo "[ERROR] Confirmation cancelled." >&2
     exit 1
   }
   if [[ "$SECRET_VAL" != "$SECRET_CONFIRM" ]]; then
-    echo "[ERROR] Las contraseñas no coinciden." >&2
+    echo "[ERROR] Passwords do not match." >&2
     exit 1
   fi
   unset SECRET_CONFIRM
@@ -288,5 +288,5 @@ chmod 600 "$OUT_FILE"
 secret_len="${#SECRET_VAL}"
 unset SECRET_VAL
 
-printf '[OK] Contraseña capturada de forma segura en %s (longitud: %d caracteres, permisos: 600).\n' "$OUT_FILE" "$secret_len"
+printf '[OK] Password captured securely in %s (length: %d characters, permissions: 600).\n' "$OUT_FILE" "$secret_len"
 

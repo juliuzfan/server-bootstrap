@@ -23,7 +23,7 @@ if [[ -z "$(state_get initial_ssh_ports)" ]]; then
   state_set initial_ssh_ports "${init_ports:-22}"
 fi
 
-log "Actualizando índices y paquetes del sistema"
+log "Updating package indices and system packages"
 apt-get update
 apt-get -y upgrade \
   -o Dpkg::Options::=--force-confdef \
@@ -66,7 +66,7 @@ if [[ -f /etc/locale.gen ]]; then
   locale-gen en_US.UTF-8 >/dev/null 2>&1 || true
 fi
 
-log "Configurando zona horaria (${TIMEZONE}) y hostname (${SERVER_HOSTNAME})"
+log "Configuring timezone (${TIMEZONE}) and hostname (${SERVER_HOSTNAME})"
 if [[ "$(timedatectl show -p Timezone --value 2>/dev/null || true)" != "$TIMEZONE" ]]; then
   timedatectl set-timezone "$TIMEZONE"
 fi
@@ -116,7 +116,7 @@ awk -v hnames="$host_names" -v pub_ip="$effective_ip" '
 ' /etc/hosts >"$tmp_hosts"
 install_if_changed "$tmp_hosts" /etc/hosts 644 || true
 
-log "Configurando usuario administrativo (${ADMIN_USER}) y acceso sudo (${SUDO_MODE})"
+log "Configuring admin user (${ADMIN_USER}) and sudo access (${SUDO_MODE})"
 if ! id "$ADMIN_USER" >/dev/null 2>&1; then
   useradd --create-home --shell /bin/bash "$ADMIN_USER"
 fi
@@ -135,21 +135,21 @@ else
   elif ! user_has_password "$ADMIN_USER"; then
     if is_interactive; then
       echo
-      echo "Establece la contraseña de sudo para '${ADMIN_USER}':"
+      echo "Set the sudo password for '${ADMIN_USER}':"
       until passwd "$ADMIN_USER"; do
-        warn "No se pudo establecer la contraseña; inténtalo de nuevo."
+        warn "Could not set password; please try again."
       done
     else
-      die "${ADMIN_USER} no tiene contraseña y SUDO_MODE=password en modo no interactivo. Define ADMIN_PASSWORD_HASH o SUDO_MODE=nopasswd."
+      die "${ADMIN_USER} has no password and SUDO_MODE=password in non-interactive mode. Set ADMIN_PASSWORD_HASH or SUDO_MODE=nopasswd."
     fi
   fi
 fi
 
 sudo_ready "$ADMIN_USER" || die "El usuario ${ADMIN_USER} no tiene acceso sudo funcional."
 
-log "Instalando llaves SSH públicas para ${ADMIN_USER}"
+log "Installing public SSH keys for ${ADMIN_USER}"
 ADMIN_HOME="$(user_home "$ADMIN_USER")"
-[[ -n "$ADMIN_HOME" && -d "$ADMIN_HOME" ]] || die "No se encontró el directorio home de ${ADMIN_USER}."
+[[ -n "$ADMIN_HOME" && -d "$ADMIN_HOME" ]] || die "Home directory for ${ADMIN_USER} not found."
 
 SSH_DIR="${ADMIN_HOME}/.ssh"
 AUTH_KEYS="${SSH_DIR}/authorized_keys"
@@ -162,12 +162,12 @@ for key in "${SB_KEYS[@]}"; do
   grep -qxF "$key" "$AUTH_KEYS" || printf '%s\n' "$key" >>"$AUTH_KEYS"
 done
 
-log "Habilitando servicios OpenSSH y sincronización horaria (chrony)"
+log "Enabling OpenSSH and time synchronization (chrony) services"
 systemctl enable --now ssh
 systemctl enable --now chrony
 
 if [[ "$ENABLE_UNATTENDED_UPGRADES" == "yes" ]]; then
-  log "Configurando actualizaciones automáticas (unattended-upgrades)"
+  log "Configuring automatic updates (unattended-upgrades)"
   tmp_auto="$(mktemp)"
   cat >"$tmp_auto" <<'EOF'
 APT::Periodic::Update-Package-Lists "1";
@@ -275,7 +275,7 @@ EOF
   rm -f "$tmp_rc"
 }
 
-log "Configurando .bashrc y prompt para root y ${ADMIN_USER}"
+log "Configuring .bashrc and prompt for root and ${ADMIN_USER}"
 install_user_bashrc "/root/.bashrc" "root"
 install_user_bashrc "${ADMIN_HOME}/.bashrc" "$ADMIN_USER"
 install_user_bashrc "/etc/skel/.bashrc" "root"
@@ -283,11 +283,11 @@ install_user_bashrc "/etc/skel/.bashrc" "root"
 # ---------------------------------- MOTD con ASCII Art + estado en vivo ---
 if [[ "$ENABLE_MOTD" == "yes" ]]; then
   banner_text="${MOTD_TEXT:-$SERVER_HOSTNAME}"
-  log "Configurando MOTD de bienvenida ('${banner_text}', color: ${MOTD_COLOR}, estilo: ${MOTD_ART_STYLE})"
+  log "Configuring welcome MOTD ('${banner_text}', color: ${MOTD_COLOR}, style: ${MOTD_ART_STYLE})"
   tmp_motd="$(mktemp)"
   {
     render_ascii_banner "$banner_text" "$MOTD_COLOR" "$MOTD_ART_STYLE"
-    printf '  \033[1;38;5;%sm%s\033[0m \033[2m• Debian GNU/Linux • Acceso autorizado únicamente\033[0m\n\n' \
+    printf '  \033[1;38;5;%sm%s\033[0m \033[2m• Debian GNU/Linux • Authorized access only\033[0m\n\n' \
       "$accent_code" "$SERVER_HOSTNAME"
   } >"$tmp_motd"
   install_if_changed "$tmp_motd" "$SB_MOTD_FILE" 644 || true
@@ -326,4 +326,4 @@ else
   rm -f "$SB_INFO_SCRIPT"
 fi
 
-log "Fase 01 (preparación del sistema) completada."
+log "Phase 01 (system preparation) completed."

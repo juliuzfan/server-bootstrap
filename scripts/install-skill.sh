@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# Instala el skill 'server-bootstrap' de forma global para que agentes de IA puedan usarlo
-# desde cualquier directorio o proyecto (Antigravity, Claude Code, Codex, Gemini CLI, etc.).
+# Installs the 'server-bootstrap' skill globally so AI agents can use it
+# from any directory or project (Antigravity, Claude Code, Codex, Gemini CLI, etc.).
 set -euo pipefail
 
 SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
@@ -9,15 +9,15 @@ SKILL_SRC="${ROOT_DIR}/.agents/skills/server-bootstrap/SKILL.md"
 
 usage() {
   cat <<'EOF'
-Uso: bash scripts/install-skill.sh [opciones]
+Usage: bash scripts/install-skill.sh [options]
 
-Instala el skill 'server-bootstrap' junto con el paquete mínimo de scripts
-(bootstrap.sh, config.env.example, scripts/) para uso global desde cualquier workspace.
+Installs the 'server-bootstrap' skill along with the minimal script bundle
+(bootstrap.sh, config.env.example, scripts/) for global use from any workspace.
 
-Opciones:
-  --target DIR   Instala en un directorio específico de skills (ej. ~/.claude/skills/server-bootstrap)
-  --all          Instala en ~/.gemini/config/skills/server-bootstrap y ~/.agents/skills/server-bootstrap (por defecto)
-  -h, --help     Muestra esta ayuda
+Options:
+  --target DIR   Install into a specific skills directory (e.g. ~/.claude/skills/server-bootstrap)
+  --all          Install into ~/.gemini/config/skills/server-bootstrap and ~/.agents/skills/server-bootstrap (default)
+  -h, --help     Show this help
 EOF
 }
 
@@ -25,7 +25,7 @@ TARGETS=()
 while (( $# > 0 )); do
   case "$1" in
     --target)
-      [[ $# -ge 2 ]] || { echo "Falta argumento para --target" >&2; exit 1; }
+      [[ $# -ge 2 ]] || { echo "Missing argument for --target" >&2; exit 1; }
       TARGETS+=("$2")
       shift 2
       ;;
@@ -37,7 +37,7 @@ while (( $# > 0 )); do
       exit 0
       ;;
     *)
-      echo "Opción desconocida: $1" >&2
+      echo "Unknown option: $1" >&2
       exit 1
       ;;
   esac
@@ -50,7 +50,7 @@ if (( ${#TARGETS[@]} == 0 )); then
   )
 fi
 
-[[ -f "$SKILL_SRC" ]] || { echo "No se encontró ${SKILL_SRC}" >&2; exit 1; }
+[[ -f "$SKILL_SRC" ]] || { echo "Not found: ${SKILL_SRC}" >&2; exit 1; }
 
 install_one() {
   local dest="$1"
@@ -60,10 +60,9 @@ install_one() {
   cp -f "${ROOT_DIR}/config.env.example" "${dest}/config.env.example"
   cp -f "${ROOT_DIR}/scripts/"*.sh "${dest}/scripts/"
   chmod +x "${dest}/bootstrap.sh" "${dest}/scripts/"*.sh
-  printf '[OK] Skill instalado en: %s\n' "$dest"
+  printf '[OK] Skill installed at: %s\n' "$dest"
 }
 
 for t in "${TARGETS[@]}"; do
   install_one "$t"
 done
-

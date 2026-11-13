@@ -1,100 +1,100 @@
 ---
 name: server-bootstrap
 description: >-
-  Provisiona y endurece servidores Debian 13 remotos de forma autónoma y segura por SSH
-  (con usuario root o no-root con sudo, autenticación por llave o contraseña).
-  Úsalo cuando el usuario pida configurar, inicializar, asegurar o hacer bootstrap de un
-  servidor Debian/VPS pasando su IP o DNS, credenciales iniciales y preferencias.
+  Autonomously and securely provisions and hardens remote Debian 13 servers over SSH
+  (with root or non-root sudo user, key or password authentication).
+  Use when the user asks to configure, initialize, secure, or bootstrap a
+  Debian/VPS server by providing its IP or DNS, initial credentials, and preferences.
 ---
 
-# Server Bootstrap (Agente Autónomo)
+# Server Bootstrap (Autonomous Agent)
 
-Este skill guía al agente para configurar un servidor **Debian 13** remoto de manera desatendida mediante [remote-bootstrap.sh](../../../scripts/remote-bootstrap.sh), evitando el TUI interactivo y garantizando que nunca se pierda el acceso SSH ni se expongan contraseñas en el contexto del LLM.
+This skill guides the agent to configure a remote **Debian 13** server unattended via [remote-bootstrap.sh](../../../scripts/remote-bootstrap.sh), avoiding the interactive TUI and ensuring SSH access is never lost and passwords are never exposed in the LLM context.
 
-## Localización del orquestador y utilidades
+## Locating the Orchestrator and Utilities
 
-Busca `remote-bootstrap.sh` y `prompt-secret.sh` en el primer path disponible:
-1. `./scripts/remote-bootstrap.sh` y `./scripts/prompt-secret.sh` (cuando este skill está instalado globalmente con su bundle).
-2. `../../../scripts/remote-bootstrap.sh` y `../../../scripts/prompt-secret.sh` relativo a este `SKILL.md` (dentro del repositorio `server-bootstrap`).
-3. `./scripts/remote-bootstrap.sh` en el workspace actual si estás dentro del repo.
+Look for `remote-bootstrap.sh` and `prompt-secret.sh` in the first available path:
+1. `./scripts/remote-bootstrap.sh` and `./scripts/prompt-secret.sh` (when this skill is installed globally with its bundle).
+2. `../../../scripts/remote-bootstrap.sh` and `../../../scripts/prompt-secret.sh` relative to this `SKILL.md` (inside the `server-bootstrap` repository).
+3. `./scripts/remote-bootstrap.sh` in the current workspace if you are inside the repo.
 
 ---
 
-## Flujo de Trabajo Obligatorio
+## Mandatory Workflow
 
-### Paso 1: Recopilar datos mínimos (preguntar solo lo que falte en el prompt)
+### Step 1: Gather Minimum Information (ask only for what is missing from the prompt)
 
-No hagas preguntas redundantes sobre lo que el humano ya indicó, pero **sí confirma** cualquier punto faltante antes de ejecutar:
+Do not ask redundant questions about what the human already specified, but **do confirm** any missing item before executing:
 
-1. **Destino y acceso inicial**:
-   - IP o DNS (`--host`).
-   - Puerto SSH inicial (`--ssh-port`, defecto `22`).
-   - Usuario inicial (`--ssh-user`, defecto `root`; usar `debian`, `admin`, etc. si el proveedor no habilita `root` directo).
-   - Credencial inicial: ruta a llave privada (`--ssh-key`) o contraseña inicial (se solicitará mediante **modal nativo del SO** con `--prompt-init-pass`; **jamás pidas que la escriba en el chat**).
-2. **Llave SSH pública para el nuevo `ADMIN_USER`**:
-   - Si el humano ya dio una llave pública (o ruta `.pub`), úsala.
-   - Si **no** la dio: revisa qué llaves públicas existen en `~/.ssh/*.pub` y pregunta al humano si prefiere:
-     - **(a)** Usar una llave existente del sistema (mostrando la ruta detectada), o
-     - **(b)** Generar un par de llaves `ed25519` dedicado para ese servidor (ej. `~/.ssh/id_ed25519_<hostname>` con `ssh-keygen -t ed25519 -N "" -f ... -C ...`).
-3. **Usuario administrador y contraseña (`SUDO_MODE`)**:
-   - Confirma `ADMIN_USER` (defecto `adminops`) y `SUDO_MODE` (`password` o `nopasswd`).
-   - Si `SUDO_MODE="password"` y el humano no proporcionó hash:
-     - Pregunta si **quiere ingresar su propia contraseña en una ventana modal segura del sistema operativo** (`--prompt-admin-pass`) **o** si **prefiere que el agente genere una contraseña aleatoria segura** y se la entregue únicamente al final.
-4. **Opciones personalizables (aplicar defaults si el humano no pide cambios)**:
-   - `SERVER_HOSTNAME` (defecto: `debian-server`), `SERVER_IP` (autodetecta), `TIMEZONE` (defecto: `UTC`).
-   - `SSH_PORT` final (`--target-ssh-port`, defecto `22`).
-   - `ENABLE_UFW` (`yes`), `EXTRA_UFW_PORTS` (ej. `"80/tcp 443/tcp"`).
-   - `ENABLE_FAIL2BAN` (`yes`), `FAIL2BAN_IGNOREIP` (lista blanca opcional).
+1. **Target & initial access**:
+   - IP or DNS (`--host`).
+   - Initial SSH port (`--ssh-port`, default `22`).
+   - Initial user (`--ssh-user`, default `root`; use `debian`, `admin`, etc. if the provider does not enable direct `root`).
+   - Initial credential: path to private key (`--ssh-key`) or initial password (will be requested via **native OS modal** with `--prompt-init-pass`; **never ask the user to type it in chat**).
+2. **Public SSH key for the new `ADMIN_USER`**:
+   - If the human already provided a public key (or `.pub` path), use it.
+   - If **not**: check which public keys exist in `~/.ssh/*.pub` and ask the human whether they prefer:
+     - **(a)** Using an existing system key (showing the detected path), or
+     - **(b)** Generating a dedicated `ed25519` key pair for that server (e.g., `~/.ssh/id_ed25519_<hostname>` with `ssh-keygen -t ed25519 -N "" -f ... -C ...`).
+3. **Admin user & password (`SUDO_MODE`)**:
+   - Confirm `ADMIN_USER` (default `adminops`) and `SUDO_MODE` (`password` or `nopasswd`).
+   - If `SUDO_MODE="password"` and the human did not provide a hash:
+     - Ask whether they **want to enter their own password in a secure native OS modal window** (`--prompt-admin-pass`) **or** **prefer the agent to generate a secure random password** and deliver it only at the end.
+4. **Customizable options (apply defaults if the human does not request changes)**:
+   - `SERVER_HOSTNAME` (default: `debian-server`), `SERVER_IP` (auto-detect), `TIMEZONE` (default: `UTC`).
+   - Final `SSH_PORT` (`--target-ssh-port`, default `22`).
+   - `ENABLE_UFW` (`yes`), `EXTRA_UFW_PORTS` (e.g., `"80/tcp 443/tcp"`).
+   - `ENABLE_FAIL2BAN` (`yes`), `FAIL2BAN_IGNOREIP` (optional whitelist).
    - `ENABLE_UNATTENDED_UPGRADES` (`yes`), `AUTO_REBOOT` (`no`), `AUTO_REBOOT_TIME` (`04:00`).
-   - `ENABLE_MOTD` (`yes`), `MOTD_TEXT` (vacío = `SERVER_HOSTNAME`), `MOTD_COLOR` (`lime`, `green`, `cyan`, `magenta`, `pink`, `orange`, `yellow`, `purple`, `blue`, `red`, `toxic`, `synthwave`, `rainbow`), `MOTD_ART_STYLE` (`claude`, `hermes`, `shadow`, `block`, `ascii`).
+   - `ENABLE_MOTD` (`yes`), `MOTD_TEXT` (empty = `SERVER_HOSTNAME`), `MOTD_COLOR` (`lime`, `green`, `cyan`, `magenta`, `pink`, `orange`, `yellow`, `purple`, `blue`, `red`, `toxic`, `synthwave`, `rainbow`), `MOTD_ART_STYLE` (`claude`, `hermes`, `shadow`, `block`, `ascii`).
 
 ---
 
-### Paso 2: Captura segura de contraseñas vía Modal Nativo (macOS / Linux / Windows / WSL)
+### Step 2: Secure Password Capture via Native Modal (macOS / Linux / Windows / WSL)
 
-- **NUNCA** pidas contraseñas en el chat ni las pases como argumentos en claro en la línea de comandos ni las imprimas en `stdout`/`stderr`.
-- **Usa las banderas modales integradas en `remote-bootstrap.sh`** (o invoca `scripts/prompt-secret.sh` directamente):
-  - `--prompt-init-pass`: abre un cuadro de diálogo nativo del SO con campo oculto (`•••••`) para capturar la contraseña inicial SSH/sudo.
-  - `--prompt-admin-pass`: abre un cuadro de diálogo nativo del SO (con doble confirmación) para capturar la contraseña de `sudo` del nuevo `ADMIN_USER`.
-  - Si necesitas capturar un secreto por separado antes de ejecutar un comando:
+- **NEVER** ask for passwords in chat, pass them as plaintext command-line arguments, or print them to `stdout`/`stderr`.
+- **Use the built-in modal flags in `remote-bootstrap.sh`** (or invoke `scripts/prompt-secret.sh` directly):
+  - `--prompt-init-pass`: opens a native OS dialog with a hidden field (`•••••`) to capture the initial SSH/sudo password.
+  - `--prompt-admin-pass`: opens a native OS dialog (with double confirmation) to capture the `sudo` password for the new `ADMIN_USER`.
+  - If you need to capture a secret separately before running a command:
     ```bash
     bash scripts/prompt-secret.sh \
-      --title "Server Bootstrap — Credencial segura" \
-      --prompt "Contraseña actual de root para conectar al servidor:" \
+      --title "Server Bootstrap — Secure Credential" \
+      --prompt "Current root password to connect to the server:" \
       --out /tmp/sb-secret.XXXXXX
     ```
-- **Compatibilidad multiplataforma automática de `prompt-secret.sh`**:
-  - **macOS (`Darwin`)**: usa `osascript` sobre `SystemUIServer` con `with hidden answer` y `activate` (trae el diálogo al frente sin requerir permisos de Accesibilidad).
-  - **Linux (X11 / Wayland)**: usa `zenity --password`, `kdialog --password`, `ssh-askpass` o `python3` (`tkinter.simpledialog`).
-  - **Windows (Git Bash / MSYS2) y WSL2**: invoca `powershell.exe -NoProfile -NonInteractive -STA` con un diálogo `System.Windows.Forms` (`UseSystemPasswordChar = $true`, `TopMost = $true`).
-  - **Fallback sin GUI**: lee desde `/dev/tty` con `read -rs`.
+- **Automatic cross-platform support in `prompt-secret.sh`**:
+  - **macOS (`Darwin`)**: uses `osascript` via `SystemUIServer` with `with hidden answer` and `activate` (brings the dialog to the front without requiring Accessibility permissions).
+  - **Linux (X11 / Wayland)**: uses `zenity --password`, `kdialog --password`, `ssh-askpass`, or `python3` (`tkinter.simpledialog`).
+  - **Windows (Git Bash / MSYS2) & WSL2**: invokes `powershell.exe -NoProfile -NonInteractive -STA` with a `System.Windows.Forms` dialog (`UseSystemPasswordChar = $true`, `TopMost = $true`).
+  - **No-GUI fallback**: reads from `/dev/tty` with `read -rs`.
 
-#### ⚠️ Permisos del Harness (Obligatorio para que el SO muestre el modal y permita red SSH)
+#### ⚠️ Harness Permissions (Mandatory for the OS to display the modal and allow SSH networking)
 
-Los sandboxes de agentes IA (Seatbelt en macOS para Codex/Antigravity, Landlock/Bubblewrap en Linux) bloquean por defecto tanto la conexión de red SSH como el acceso al servidor gráfico (`WindowServer` / `mach-lookup` en macOS, X11/D-Bus en Linux, interoperabilidad `powershell.exe` en WSL).
+AI agent sandboxes (Seatbelt on macOS for Codex/Antigravity, Landlock/Bubblewrap on Linux) block both SSH network connections and access to the graphical server (`WindowServer` / `mach-lookup` on macOS, X11/D-Bus on Linux, `powershell.exe` interop on WSL) by default.
 
-Por lo tanto, al invocar `remote-bootstrap.sh` o `prompt-secret.sh`:
-- **En Antigravity**: ejecuta `run_command` con `BypassSandbox: true`.
-- **En OpenAI Codex CLI / Desktop**: ejecuta la herramienta de shell con permisos escalados (`with_escalated_permissions: true` / `sandbox_permissions: "require_escalated"`).
-- **En Claude Code / Cursor**: ejecuta el comando permitiendo salida del sandbox si el entorno lo solicita.
-
----
-
-### Paso 3: Ejecución autónoma y comprobaciones por fase
-
-1. **(Opcional recomendado)** Ejecuta primero `--dry-run` (con `--prompt-init-pass` si usa contraseña inicial) para validar conectividad SSH inicial, comprobar que el sistema remoto sea Debian y verificar privilegios (`root` o `sudo`).
-2. Ejecuta `remote-bootstrap.sh` con todas las banderas acordadas:
-   - **Fase 01**: instala paquetes (`neovim`, `htop`, `wget`, `locales`, `sharutils`, etc.), crea `ADMIN_USER`, instala llaves SSH, configura `sudo`, `.bashrc` y MOTD.
-   - **Comprobación externa 1**: el script abre una sesión SSH **nueva e independiente** como `ADMIN_USER` y valida `sudo`. Si falla, **aborta sin endurecer SSH** para conservar el acceso inicial intacto.
-   - **Fase 02 (y transición de puerto)**: si `--target-ssh-port` difiere del puerto inicial, abre ambos puertos (`--transition-only`), comprueba conectividad externa al puerto nuevo y solo entonces cierra el puerto anterior y activa Fail2Ban. Si el puerto nuevo no responde, deja ambos puertos abiertos y aborta.
-   - **Fase 03**: ejecuta `03-verify.sh` y limpia el directorio temporal remoto y cualquier archivo temporal local de contraseñas.
+Therefore, when invoking `remote-bootstrap.sh` or `prompt-secret.sh`:
+- **In Antigravity**: run `run_command` with `BypassSandbox: true`.
+- **In OpenAI Codex CLI / Desktop**: run the shell tool with escalated permissions (`with_escalated_permissions: true` / `sandbox_permissions: "require_escalated"`).
+- **In Claude Code / Cursor**: run the command allowing sandbox bypass if prompted by the environment.
 
 ---
 
-### Paso 4: Reporte final al humano
+### Step 3: Autonomous Execution & Per-Phase Checks
 
-Al terminar (o si alguna comprobación falla), reporta de forma clara y concisa:
-1. **Estado de cada fase y resumen de `03-verify.sh`** (`OK / WARN / FAIL` o el diagnóstico exacto si falló una comprobación de conexión, indicando qué puertos siguen abiertos).
-2. **Comando exacto para conectarse**:
-   `ssh -p <SSH_PORT> [-i <ruta_llave>] <ADMIN_USER>@<HOST>`
-3. **Credenciales generadas** (solo si el agente generó una llave SSH dedicada o una contraseña aleatoria para `sudo`), indicando la ruta de la llave o la contraseña para que el humano la resguarde.
+1. **(Recommended optional)** Run `--dry-run` first (with `--prompt-init-pass` if using an initial password) to validate initial SSH connectivity, verify the remote system is Debian, and check privileges (`root` or `sudo`).
+2. Run `remote-bootstrap.sh` with all agreed flags:
+   - **Phase 01**: installs packages (`neovim`, `htop`, `wget`, `locales`, `sharutils`, etc.), creates `ADMIN_USER`, installs SSH keys, configures `sudo`, `.bashrc`, and MOTD.
+   - **External check 1**: the script opens a **new, independent** SSH session as `ADMIN_USER` and validates `sudo`. If it fails, **it aborts without hardening SSH** to keep initial access intact.
+   - **Phase 02 (and port transition)**: if `--target-ssh-port` differs from the initial port, it opens both ports (`--transition-only`), verifies external connectivity on the new port, and only then closes the old port and enables Fail2Ban. If the new port does not respond, it leaves both ports open and aborts.
+   - **Phase 03**: runs `03-verify.sh` and cleans up the remote temporary directory and any local temporary password files.
+
+---
+
+### Step 4: Final Report to the Human
+
+When finished (or if any check fails), report clearly and concisely:
+1. **Status of each phase and `03-verify.sh` summary** (`OK / WARN / FAIL` or the exact diagnostic if a connection check failed, indicating which ports remain open).
+2. **Exact command to connect**:
+   `ssh -p <SSH_PORT> [-i <key_path>] <ADMIN_USER>@<HOST>`
+3. **Generated credentials** (only if the agent generated a dedicated SSH key or a random `sudo` password), indicating the key path or password so the human can store it safely.

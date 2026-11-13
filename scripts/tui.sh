@@ -220,7 +220,7 @@ tui_section() {
 
 # tui_input "Etiqueta" "default" "validador_fn" "Mensaje de error" -> resultado en TUI_REPLY
 tui_input() {
-  local prompt="$1" default="${2:-}" validator="${3:-}" err_msg="${4:-Valor inválido.}"
+  local prompt="$1" default="${2:-}" validator="${3:-}" err_msg="${4:-Invalid value.}"
   local val=""
   while true; do
     if [[ -n "$default" ]]; then
@@ -251,7 +251,7 @@ tui_yesno() {
     case "$ans" in
       y|yes|s|si|sí) TUI_REPLY="yes"; return 0 ;;
       n|no)          TUI_REPLY="no";  return 0 ;;
-      *) printf '  \033[1;31m✗ Responde s/y (sí) o n (no).\033[0m\n' >&2 ;;
+      *) printf '  \033[1;31m✗ Answer y (yes) or n (no).\033[0m\n' >&2 ;;
     esac
   done
 }
@@ -334,7 +334,7 @@ write_config_file() {
 
   {
     printf '# Generado por server-bootstrap (%s)\n' "$(date -Iseconds 2>/dev/null || date)"
-    printf '# Archivo cargado como shell: mantén permisos 600 y valores de confianza.\n\n'
+    printf '# Sourced as a shell script: keep 600 permissions and trusted values.\n\n'
     printf 'SERVER_HOSTNAME=%s\n' "$(shell_quote "$SERVER_HOSTNAME")"
     printf 'SERVER_IP=%s\n' "$(shell_quote "${SERVER_IP:-}")"
     printf 'TIMEZONE=%s\n\n' "$(shell_quote "$TIMEZONE")"
@@ -383,29 +383,29 @@ run_config_wizard() {
   valid_timezone "$cur_tz" || cur_tz="UTC"
   cur_ip="$(client_ip)"
 
-  tui_banner "Debian 13 Server Bootstrap — Asistente TUI" "Configuración guiada de sistema, seguridad, prompt y MOTD"
+  tui_banner "Debian 13 Server Bootstrap — TUI Wizard" "Guided setup for system, security, prompt, and MOTD"
 
-  tui_section "1. Identidad del servidor y /etc/hosts"
-  tui_input "Hostname del servidor" "$cur_host" valid_hostname "Usa letras, números, puntos o guiones (ej. srv-prod-01)."
+  tui_section "1. Server Identity & /etc/hosts"
+  tui_input "Server hostname" "$cur_host" valid_hostname "Use letters, numbers, dots, or hyphens (e.g. srv-prod-01)."
   SERVER_HOSTNAME="$TUI_REPLY"
 
-  tui_input "IP pública del servidor para /etc/hosts" "$cur_srv_ip" valid_single_ip "Indica una dirección IPv4/IPv6 válida (no 127.x.x.x)."
+  tui_input "Server public IP for /etc/hosts" "$cur_srv_ip" valid_single_ip "Enter a valid IPv4/IPv6 address (not 127.x.x.x)."
   SERVER_IP="$TUI_REPLY"
 
-  tui_input "Zona horaria (IANA)" "$cur_tz" valid_timezone "Zona horaria no encontrada en /usr/share/zoneinfo (ej. UTC o America/Mexico_City)."
+  tui_input "Timezone (IANA)" "$cur_tz" valid_timezone "Timezone not found in /usr/share/zoneinfo (e.g. UTC or America/Mexico_City)."
   TIMEZONE="$TUI_REPLY"
 
-  tui_section "2. Usuario administrativo y sudo"
-  tui_input "Nombre del usuario administrador (no root)" "${ADMIN_USER:-adminops}" valid_username "Usa minúsculas, dígitos, _ o - (sin root)."
+  tui_section "2. Administrative User & Sudo"
+  tui_input "Admin username (non-root)" "${ADMIN_USER:-adminops}" valid_username "Use lowercase letters, digits, _ or - (not root)."
   ADMIN_USER="$TUI_REPLY"
 
-  tui_select "Modo de privilegios sudo para ${ADMIN_USER}" "${SUDO_MODE:-password}" \
-    "password|Pedir contraseña al ejecutar sudo (recomendado; se solicitará en el paso 01)" \
-    "nopasswd|Permitir sudo sin contraseña (NOPASSWD en /etc/sudoers.d)"
+  tui_select "Sudo privilege mode for ${ADMIN_USER}" "${SUDO_MODE:-password}" \
+    "password|Prompt for password when running sudo (recommended; set in step 01)" \
+    "nopasswd|Allow passwordless sudo (NOPASSWD in /etc/sudoers.d)"
   SUDO_MODE="$TUI_REPLY"
   ADMIN_PASSWORD_HASH="${ADMIN_PASSWORD_HASH:-}"
 
-  tui_section "3. Llaves SSH públicas"
+  tui_section "3. Public SSH Keys"
   SB_KEYS=()
   if declare -p SSH_PUBLIC_KEYS >/dev/null 2>&1 && (( ${#SSH_PUBLIC_KEYS[@]} > 0 )) && [[ "${SSH_PUBLIC_KEYS[0]}" != *AAAA_REEMPLAZAR* ]]; then
     printf '  Llaves actuales detectadas: %d\n' "${#SSH_PUBLIC_KEYS[@]}"

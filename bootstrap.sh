@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # shellcheck shell=bash
-# Orquestador principal de Debian 13 Server Bootstrap (con asistente TUI guiado y modo CI/CD).
+# Main orchestrator for Debian 13 Server Bootstrap (with guided TUI wizard and CI/CD mode).
 set -Eeuo pipefail
 
 ROOT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
@@ -13,14 +13,14 @@ source "${ROOT_DIR}/scripts/tui.sh"
 
 usage() {
   cat <<'EOF'
-Uso: sudo bash bootstrap.sh [opciones]
+Usage: sudo bash bootstrap.sh [options]
 
-Opciones:
-  -w, --wizard       Ejecuta el asistente interactivo TUI para crear/editar config.env.
-  -c, --config FILE  Ruta al archivo de configuración (por defecto: ./config.env).
-  -y, --yes          Modo no interactivo (automatización / cloud-init; requiere CONFIRM_SSH_HARDENING=YES
-                     en config.env para ejecutar la fase 02).
-  -h, --help         Muestra esta ayuda.
+Options:
+  -w, --wizard       Run the interactive TUI wizard to create/edit config.env.
+  -c, --config FILE  Path to configuration file (default: ./config.env).
+  -y, --yes          Non-interactive mode (automation / cloud-init; requires CONFIRM_SSH_HARDENING=YES
+                     in config.env to run phase 02).
+  -h, --help         Show this help.
 EOF
 }
 
@@ -35,7 +35,7 @@ while (( $# > 0 )); do
       shift
       ;;
     -c|--config)
-      [[ $# -ge 2 ]] || die "Falta el argumento para $1"
+      [[ $# -ge 2 ]] || die "Missing argument for $1"
       BOOTSTRAP_CONFIG="$2"
       shift 2
       ;;
@@ -48,7 +48,7 @@ while (( $# > 0 )); do
       exit 0
       ;;
     *)
-      die "Opción desconocida: $1 (usa --help)"
+      die "Unknown option: $1 (use --help)"
       ;;
   esac
 done
@@ -58,7 +58,7 @@ export BOOTSTRAP_NONINTERACTIVE BOOTSTRAP_CONFIG
 require_root
 require_debian
 
-# Registra toda la ejecución en /var/log/server-bootstrap.log sin perder la salida en pantalla.
+# Log all execution output to /var/log/server-bootstrap.log without losing screen output.
 if [[ -z "${__SB_LOGGING_ACTIVE:-}" ]]; then
   export __SB_LOGGING_ACTIVE=1
   mkdir -p "$(dirname "$SB_LOG_FILE")"
@@ -67,27 +67,27 @@ if [[ -z "${__SB_LOGGING_ACTIVE:-}" ]]; then
   exec > >(tee -a "$SB_LOG_FILE") 2>&1
 fi
 
-# Si no existe config.env (o se pidió --wizard), lanza el asistente guiado TUI.
+# If config.env does not exist (or --wizard was requested), launch the guided TUI wizard.
 if (( FORCE_WIZARD == 1 )) || [[ ! -f "$BOOTSTRAP_CONFIG" ]]; then
   if is_interactive; then
     run_config_wizard "$BOOTSTRAP_CONFIG"
   else
-    die "No existe ${BOOTSTRAP_CONFIG}. En modo no interactivo debes proveerlo previamente."
+    die "${BOOTSTRAP_CONFIG} does not exist. In non-interactive mode you must provide it beforehand."
   fi
 elif is_interactive; then
-  # Si config.env aún tiene la llave placeholder de ejemplo, ofrece abrir el asistente.
-  if grep -q 'AAAA_REEMPLAZAR' "$BOOTSTRAP_CONFIG" 2>/dev/null; then
-    warn "${BOOTSTRAP_CONFIG} todavía contiene valores de plantilla (AAAA_REEMPLAZAR)."
+  # If config.env still has the example placeholder key, offer to open the wizard.
+  if grep -q 'AAAA_REEMPLAZAR\|AAAA_REPLACE' "$BOOTSTRAP_CONFIG" 2>/dev/null; then
+    warn "${BOOTSTRAP_CONFIG} still contains template placeholder values."
     run_config_wizard "$BOOTSTRAP_CONFIG"
   else
-    tui_banner "Debian 13 Server Bootstrap" "Archivo detectado: ${BOOTSTRAP_CONFIG}"
-    tui_select "¿Cómo deseas continuar?" "run" \
-      "run|Usar la configuración actual de config.env y continuar" \
-      "wizard|Abrir el asistente guiado TUI para revisar/modificar opciones" \
-      "cancel|Salir sin hacer cambios"
+    tui_banner "Debian 13 Server Bootstrap" "Detected file: ${BOOTSTRAP_CONFIG}"
+    tui_select "How would you like to continue?" "run" \
+      "run|Use the current config.env configuration and continue" \
+      "wizard|Open the guided TUI wizard to review/modify options" \
+      "cancel|Exit without making changes"
     case "$TUI_REPLY" in
       wizard) run_config_wizard "$BOOTSTRAP_CONFIG" ;;
-      cancel) echo "Cancelado."; exit 0 ;;
+      cancel) echo "Cancelled."; exit 0 ;;
     esac
   fi
 fi
@@ -99,26 +99,26 @@ banner_preview="${MOTD_TEXT:-$SERVER_HOSTNAME}"
 render_ascii_banner "$banner_preview" "$MOTD_COLOR" "$MOTD_ART_STYLE"
 
 echo "=================================================================="
-echo " Resumen de ejecución (log: ${SB_LOG_FILE})"
+echo " Execution Summary (log: ${SB_LOG_FILE})"
 echo "------------------------------------------------------------------"
 echo " Hostname / IP:    ${SERVER_HOSTNAME} (${SERVER_IP:-$(detect_server_ip)}) [${TIMEZONE}]"
-echo " Usuario admin:    ${ADMIN_USER} (sudo: ${SUDO_MODE}, llaves: ${#SB_KEYS[@]})"
-echo " SSH puerto final: ${SSH_PORT}/tcp"
-echo " Firewall UFW:     ${ENABLE_UFW} ${EXTRA_UFW_PORTS:+(extra: ${EXTRA_UFW_PORTS})}"
+echo " Admin user:       ${ADMIN_USER} (sudo: ${SUDO_MODE}, keys: ${#SB_KEYS[@]})"
+echo " Final SSH port:   ${SSH_PORT}/tcp"
+echo " UFW Firewall:     ${ENABLE_UFW} ${EXTRA_UFW_PORTS:+(extra: ${EXTRA_UFW_PORTS})}"
 echo " Fail2Ban:         ${ENABLE_FAIL2BAN} ${FAIL2BAN_IGNOREIP:+(ignoreip: ${FAIL2BAN_IGNOREIP})}"
 echo " Auto-upgrades:    ${ENABLE_UNATTENDED_UPGRADES} (auto-reboot: ${AUTO_REBOOT})"
-echo " Shell & MOTD:     .bashrc Roster.li (activo), motd=${ENABLE_MOTD} (${MOTD_COLOR}/${MOTD_ART_STYLE})"
+echo " Shell & MOTD:     .bashrc Roster.li (active), motd=${ENABLE_MOTD} (${MOTD_COLOR}/${MOTD_ART_STYLE})"
 echo "=================================================================="
 
 if is_interactive; then
-  echo "Asegúrate de contar con acceso a la consola de tu proveedor por seguridad."
-  confirm_yes "¿Iniciar Fase 01 (preparación del sistema)?" || { echo "Cancelado."; exit 0; }
+  echo "Make sure you have access to your provider's web console for safety."
+  confirm_yes "Start Phase 01 (system preparation)?" || { echo "Cancelled."; exit 0; }
 fi
 
-log "Ejecutando Fase 01: Preparación del sistema"
+log "Running Phase 01: System preparation"
 bash "${ROOT_DIR}/scripts/01-system.sh"
 
-# Comprueba en qué puerto está escuchando sshd ahora mismo para dar la instrucción exacta.
+# Check which port sshd is currently listening on to give the exact instruction.
 active_ssh_port="$(sshd -T 2>/dev/null | awk '$1 == "port" {print $2; exit}' || true)"
 active_ssh_port="${active_ssh_port:-22}"
 srv_ip="$(primary_ip)"
@@ -126,19 +126,19 @@ srv_ip="$(primary_ip)"
 if is_interactive; then
   echo
   echo "=================================================================="
-  echo " PRUEBA OBLIGATORIA ANTES DE ENDURECER SSH (Fase 02)"
+  echo " MANDATORY TEST BEFORE HARDENING SSH (Phase 02)"
   echo "------------------------------------------------------------------"
-  echo " 1. Abre OTRA terminal sin cerrar esta sesión."
-  echo " 2. Verifica que entras con tu llave SSH y que sudo funciona:"
+  echo " 1. Open ANOTHER terminal without closing this session."
+  echo " 2. Verify that you can log in with your SSH key and that sudo works:"
   echo "      ssh -p ${active_ssh_port} ${ADMIN_USER}@${srv_ip}"
   echo "      sudo -v"
   if [[ "$SSH_PORT" != "$active_ssh_port" ]]; then
-    echo " 3. Nota: el cambio al puerto ${SSH_PORT} se hará en transición segura"
-    echo "    durante el siguiente paso (ambos puertos abiertos hasta confirmar)."
+    echo " 3. Note: switching to port ${SSH_PORT} will be done safely"
+    echo "    during the next step (both ports open until confirmed)."
   fi
   echo "=================================================================="
-  if ! confirm_yes "¿Confirmas que el login con llave y sudo funcionaron en otra terminal?"; then
-    warn "Se dejó SSH sin endurecer. Cuando lo verifiques, ejecuta:"
+  if ! confirm_yes "Do you confirm that key login and sudo worked in another terminal?"; then
+    warn "SSH was left unhardened. Once verified, run:"
     echo "  sudo bash scripts/02-security.sh"
     echo "  sudo bash scripts/03-verify.sh"
     exit 0
@@ -147,15 +147,15 @@ if is_interactive; then
   export CONFIRM_SSH_HARDENING
   write_config_file "$BOOTSTRAP_CONFIG"
 elif [[ "$CONFIRM_SSH_HARDENING" != "YES" ]]; then
-  warn "Modo no interactivo con CONFIRM_SSH_HARDENING=${CONFIRM_SSH_HARDENING}: se omite la Fase 02."
+  warn "Non-interactive mode with CONFIRM_SSH_HARDENING=${CONFIRM_SSH_HARDENING}: skipping Phase 02."
   exit 0
 fi
 
-log "Ejecutando Fase 02: Endurecimiento SSH, UFW y Fail2Ban"
+log "Running Phase 02: SSH hardening, UFW, and Fail2Ban"
 bash "${ROOT_DIR}/scripts/02-security.sh"
 
-log "Ejecutando Fase 03: Verificación final"
+log "Running Phase 03: Final verification"
 bash "${ROOT_DIR}/scripts/03-verify.sh"
 
 echo
-echo "Bootstrap finalizado con éxito. Conserva abierta tu sesión actual hasta probar una nueva conexión."
+echo "Bootstrap completed successfully. Keep your current session open until you test a new connection."

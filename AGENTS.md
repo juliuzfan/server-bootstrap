@@ -1,14 +1,14 @@
-# Guía para Agentes IA
+# AI Agent Guide
 
-Este repositorio incluye soporte nativo para aprovisionar servidores **Debian 13** de forma autónoma y remota sin usar el asistente TUI interactivo.
+This repository includes native support for provisioning **Debian 13** servers autonomously and remotely without using the interactive TUI wizard.
 
-- **Skill principal**: [.agents/skills/server-bootstrap/SKILL.md](.agents/skills/server-bootstrap/SKILL.md) — Léelo y sigue su flujo completo antes de ejecutar comandos.
-- **Orquestador remoto**: `scripts/remote-bootstrap.sh` — Ejecuta desde tu máquina local las fases `01-system.sh`, `02-security.sh` (con transición segura de puerto) y `03-verify.sh` realizando pruebas de conexión SSH + `sudo` entre fases.
-- **Captura modal de contraseñas (macOS / Linux / Windows / WSL)**: `scripts/prompt-secret.sh` (o las banderas `--prompt-init-pass` y `--prompt-admin-pass` de `remote-bootstrap.sh`) — Muestra un diálogo nativo del SO con entrada oculta y guarda el secreto en un archivo temporal `chmod 600` sin exponerlo en stdout/stderr ni en el contexto del agente.
-- **Instalación global del skill**: `bash scripts/install-skill.sh` — Permite invocar el skill desde cualquier otro workspace.
+- **Main skill**: [.agents/skills/server-bootstrap/SKILL.md](.agents/skills/server-bootstrap/SKILL.md) — Read it and follow its full workflow before running commands.
+- **Remote orchestrator**: `scripts/remote-bootstrap.sh` — Runs phases `01-system.sh`, `02-security.sh` (with safe port transition), and `03-verify.sh` from your local machine, performing SSH + `sudo` connection checks between phases.
+- **Modal password capture (macOS / Linux / Windows / WSL)**: `scripts/prompt-secret.sh` (or the `--prompt-init-pass` and `--prompt-admin-pass` flags of `remote-bootstrap.sh`) — Displays a native OS dialog with hidden input and saves the secret to a `chmod 600` temporary file without exposing it in stdout/stderr or the agent context.
+- **Global skill installation**: `bash scripts/install-skill.sh` — Allows invoking the skill from any other workspace.
 
-## Reglas clave
-1. No ejecutes `bootstrap.sh` en modo interactivo ni pidas contraseñas por el chat ni las pases por argumentos de línea de comandos.
-2. Usa `--prompt-init-pass` / `--prompt-admin-pass` (o `scripts/prompt-secret.sh` hacia archivos temporales `chmod 600` con `--init-pass-file` / `--admin-pass-file`) para capturar contraseñas directamente del usuario mediante un modal nativo del SO.
-3. Ejecuta `remote-bootstrap.sh` y `prompt-secret.sh` **fuera del sandbox del harness** (`BypassSandbox: true` en Antigravity, `with_escalated_permissions: true` en Codex) para permitir tanto la conexión SSH como el acceso al servidor gráfico del SO (`WindowServer` / X11 / WinForms).
-4. Nunca ejecutes `02-security.sh` sin pasar por la comprobación externa de SSH + `sudo` de `remote-bootstrap.sh`.
+## Key Rules
+1. Do not run `bootstrap.sh` in interactive mode, do not ask for passwords in chat, and do not pass them as command-line arguments.
+2. Use `--prompt-init-pass` / `--prompt-admin-pass` (or `scripts/prompt-secret.sh` to `chmod 600` temporary files with `--init-pass-file` / `--admin-pass-file`) to capture passwords directly from the user via a native OS modal.
+3. Run `remote-bootstrap.sh` and `prompt-secret.sh` **outside the harness sandbox** (`BypassSandbox: true` in Antigravity, `with_escalated_permissions: true` in Codex) to allow both SSH connections and access to the OS graphical server (`WindowServer` / X11 / WinForms).
+4. Never run `02-security.sh` without going through the external SSH + `sudo` verification of `remote-bootstrap.sh`.

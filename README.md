@@ -1,68 +1,68 @@
 # Debian 13 Server Bootstrap
 
-Deja listo un servidor **Debian 13 (Trixie)** recién instalado en pocos minutos.
+Get a freshly installed **Debian 13 (Trixie)** server ready in just a few minutes.
 
-A través de un asistente interactivo en terminal (TUI en Bash puro, sin dependencias externas), configura el sistema base, crea tu usuario administrador con `sudo`, asegura OpenSSH sin riesgo de quedarte fuera, activa el firewall y personaliza la terminal con un prompt moderno y un banner ASCII Art en colores neón.
+Through an interactive terminal wizard (pure Bash TUI, no external dependencies), it configures the base system, creates your admin user with `sudo`, hardens OpenSSH without locking you out, enables the firewall, and customizes the terminal with a modern prompt and a neon-colored ASCII Art banner.
 
-> **Consejo de oro:** mantén abierta tu sesión `root` actual y ten a mano la consola web de tu proveedor hasta comprobar que puedes entrar en una ventana nueva.
+> **Golden rule:** keep your current `root` session open and have your provider's web console handy until you verify that you can log in from a new window.
 
 ---
 
-## Inicio rápido
+## Quick Start
 
-En una imagen mínima de Debian `git` no suele venir instalado. Entra como `root` (o con un usuario con `sudo`) y ejecuta:
+On a minimal Debian image, `git` is usually not pre-installed. Log in as `root` (or a user with `sudo`) and run:
 
 ```bash
-# 1. Instalar git y certificados base
+# 1. Install git and base certificates
 apt-get update && apt-get install -y git ca-certificates
 
-# 2. Clonar el repositorio
+# 2. Clone the repository
 git clone https://github.com/juliuzfan/server-bootstrap.git
 cd server-bootstrap
 
-# 3. Iniciar el asistente interactivo
+# 3. Start the interactive wizard
 sudo bash bootstrap.sh
 ```
 
-El asistente te guiará paso a paso con menús navegables (`↑`/`↓` y `Enter`), detectará datos actuales del servidor, te mostrará una vista previa del banner en color y guardará tu `config.env` con permisos seguros (`600`).
+The wizard will guide you step by step with navigable menus (`↑`/`↓` and `Enter`), detect current server settings, show you a color preview of the banner, and save your `config.env` with secure permissions (`600`).
 
 ---
 
-## ¿Cómo evita que pierdas el acceso SSH?
+## How Does It Prevent Losing SSH Access?
 
-El proceso se divide en fases con pausas de confirmación para que nunca cierres `root` a ciegas:
+The process is divided into phases with confirmation pauses so you never lock out `root` blindly:
 
-1. **Fase 01 — Sistema y usuario**: instala paquetes, configura `sudo` y agrega tu llave SSH pública al nuevo usuario sin tocar todavía las restricciones de `sshd`.
-2. **Pausa de verificación**: el script se detiene y te muestra el comando exacto para abrir **otra terminal** y comprobar que entras con tu llave y que `sudo -v` responde bien.
-3. **Fase 02 — Endurecimiento**: solo cuando confirmas escribiendo `YES`, deshabilita el login de `root` y las contraseñas por SSH.
-   - *Si decidiste cambiar el puerto SSH (ej. del `22` al `2222`)*: abre temporalmente **ambos puertos** en el firewall y en `sshd`, te pide probar el puerto nuevo y únicamente entonces cierra el anterior.
-4. **Fase 03 — Verificación**: imprime un resumen final `[OK] / [WARN] / [FAIL]` del estado del servidor.
-
----
-
-## Qué incluye
-
-### Sistema y mantenimiento
-- **Actualización y herramientas**: actualiza paquetes de forma no interactiva e instala utilidades esenciales (`htop`, `neovim` como reemplazo del sistema para `vim`/`vi`/`editor`, `wget`, `curl`, `git`, `lsof`, `dnsutils`, `sharutils`).
-- **Identidad, `/etc/hosts`, locales y hora**: configura el `hostname`, registra en `/etc/hosts` la IP pública del servidor (`SERVER_IP` elegida o autodetectada) junto con `127.0.1.1`, habilita el locale `en_US.UTF-8`, define la zona horaria (`UTC` por defecto) y activa `chrony` para sincronización NTP.
-- **Parches automáticos**: activa `unattended-upgrades` con opción de reinicio automático en horario programado si el kernel lo requiere.
-
-### Acceso y seguridad
-- **Usuario administrador con `sudo` real**: crea el usuario y configura `sudo` con contraseña (solicitada en el paso 01 o mediante hash) o sin contraseña (`NOPASSWD` validado con `visudo`).
-- **Llaves SSH**: acepta una o varias llaves públicas (`ed25519`, `rsa`, `ecdsa` y llaves de hardware `sk-*` FIDO2), validadas con `ssh-keygen`.
-- **OpenSSH endurecido**: aplica configuración en `/etc/ssh/sshd_config.d/`, la valida con `sshd -t` antes de recargar y hace rollback automático si algo falla.
-- **Firewall (UFW)**: bloquea todo el tráfico entrante salvo SSH y los puertos extra que indiques (ej. `80/tcp 443/tcp`), con soporte IPv6 y limpieza automática de reglas antiguas.
-- **Fail2Ban**: protege el puerto SSH usando el backend `systemd` + `nftables` y permite declarar IPs o redes de confianza en lista blanca.
-
-### Experiencia en terminal (`.bashrc` + Prompt + MOTD)
-- **`.bashrc` y Prompt listos sin preguntar**: instala automáticamente en `root`, el usuario administrador y `/etc/skel` tu `.bashrc` estándar (encabezado Roster.li con año y hostname dinámicos, prompt en colores con rama Git `on <branch>`, aliases de navegación/seguridad/`nvim`/`gst` y la función `password_generator`).
-- **MOTD de bienvenida con ASCII Art**: genera un banner en Bash puro seleccionable por nombre (`claude` estilo Claude Code, `hermes` estilo Hermes Agent, `shadow` 3D ANSI, `block` o `ascii`), con el nombre del servidor o el texto que elijas, colores neón o gradientes (`lime`, `cyan`, `magenta`, `toxic`, `synthwave`, `rainbow`, etc.) y un resumen de recursos al iniciar sesión (OS, IP, uptime, carga, RAM y disco).
+1. **Phase 01 — System & User**: installs packages, configures `sudo`, and adds your public SSH key to the new user without touching `sshd` restrictions yet.
+2. **Verification pause**: the script pauses and shows you the exact command to open **another terminal** and verify that you can log in with your key and that `sudo -v` responds properly.
+3. **Phase 02 — Hardening**: only after you confirm by typing `YES` does it disable `root` login and password authentication over SSH.
+   - *If you chose to change the SSH port (e.g., from `22` to `2222`)*: it temporarily opens **both ports** in the firewall and `sshd`, asks you to test the new port, and only then closes the old one.
+4. **Phase 03 — Verification**: prints a final `[OK] / [WARN] / [FAIL]` summary of the server state.
 
 ---
 
-## Uso avanzado y automatización
+## What's Included
 
-Si prefieres preparar la configuración sin pasar por el asistente interactivo:
+### System & Maintenance
+- **Updates & tools**: updates packages non-interactively and installs essential utilities (`htop`, `neovim` as the system replacement for `vim`/`vi`/`editor`, `wget`, `curl`, `git`, `lsof`, `dnsutils`, `sharutils`).
+- **Identity, `/etc/hosts`, locales & time**: sets the `hostname`, registers the server's public IP (`SERVER_IP`, chosen or auto-detected) in `/etc/hosts` alongside `127.0.1.1`, enables the `en_US.UTF-8` locale, sets the timezone (`UTC` by default), and enables `chrony` for NTP synchronization.
+- **Automatic patches**: enables `unattended-upgrades` with an optional scheduled automatic reboot if required by the kernel.
+
+### Access & Security
+- **Admin user with real `sudo`**: creates the user and configures `sudo` with a password (prompted in step 01 or via hash) or passwordless (`NOPASSWD` validated with `visudo`).
+- **SSH keys**: accepts one or more public keys (`ed25519`, `rsa`, `ecdsa`, and `sk-*` FIDO2 hardware keys), validated with `ssh-keygen`.
+- **Hardened OpenSSH**: applies configuration in `/etc/ssh/sshd_config.d/`, validates it with `sshd -t` before reloading, and performs automatic rollback if anything fails.
+- **Firewall (UFW)**: blocks all incoming traffic except SSH and any extra ports you specify (e.g., `80/tcp 443/tcp`), with IPv6 support and automatic cleanup of old rules.
+- **Fail2Ban**: protects the SSH port using the `systemd` + `nftables` backend and lets you whitelist trusted IPs or networks.
+
+### Terminal Experience (`.bashrc` + Prompt + MOTD)
+- **Ready-to-use `.bashrc` and Prompt out of the box**: automatically installs your standard `.bashrc` for `root`, the admin user, and `/etc/skel` (Roster.li header with dynamic year and hostname, color prompt with Git branch `on <branch>`, navigation/safety/`nvim`/`gst` aliases, and the `password_generator` function).
+- **Welcome MOTD with ASCII Art**: generates a pure-Bash banner selectable by name (`claude` Claude Code style, `hermes` Hermes Agent style, `shadow` 3D ANSI, `block`, or `ascii`), using the server name or custom text, neon or gradient colors (`lime`, `cyan`, `magenta`, `toxic`, `synthwave`, `rainbow`, etc.), and a login resource summary (OS, IP, uptime, load, RAM, and disk).
+
+---
+
+## Advanced Usage & Automation
+
+If you prefer preparing the configuration without going through the interactive wizard:
 
 ```bash
 cp config.env.example config.env
@@ -71,17 +71,17 @@ nano config.env
 sudo bash bootstrap.sh
 ```
 
-### Opciones de línea de comandos
+### Command-Line Options
 
 ```bash
-sudo bash bootstrap.sh --wizard                  # Abrir el asistente TUI para editar config.env
-sudo bash bootstrap.sh --config /ruta/config.env # Usar un archivo de configuración específico
-sudo bash bootstrap.sh --yes                     # Modo desatendido (CI/CD o cloud-init)
+sudo bash bootstrap.sh --wizard                  # Open the TUI wizard to edit config.env
+sudo bash bootstrap.sh --config /path/config.env # Use a specific configuration file
+sudo bash bootstrap.sh --yes                     # Unattended mode (CI/CD or cloud-init)
 ```
 
-> En modo `--yes`, asegúrate de definir en `config.env` `CONFIRM_SSH_HARDENING="YES"` y `SUDO_MODE="nopasswd"` (o `ADMIN_PASSWORD_HASH`).
+> In `--yes` mode, make sure `config.env` has `CONFIRM_SSH_HARDENING="YES"` and `SUDO_MODE="nopasswd"` (or `ADMIN_PASSWORD_HASH`).
 
-También puedes ejecutar cada etapa de forma independiente en cualquier momento:
+You can also run each stage independently at any time:
 
 ```bash
 sudo bash scripts/01-system.sh
@@ -89,82 +89,82 @@ sudo bash scripts/02-security.sh
 sudo bash scripts/03-verify.sh
 ```
 
-Toda la ejecución queda registrada en `/var/log/server-bootstrap.log`.
+All execution output is logged to `/var/log/server-bootstrap.log`.
 
 ---
 
-## Referencia rápida de `config.env`
+## Quick `config.env` Reference
 
-| Variable | Por defecto | Descripción |
+| Variable | Default | Description |
 | :--- | :--- | :--- |
-| `SERVER_HOSTNAME` | `"debian-server"` | Nombre del servidor (se registra en `/etc/hosts`). |
-| `SERVER_IP` | `""` *(autodetecta)* | IP pública del servidor para asociarla al hostname en `/etc/hosts`. |
-| `TIMEZONE` | `"UTC"` | Zona horaria IANA (ej. `UTC`, `America/Mexico_City`). |
-| `ADMIN_USER` | `"adminops"` | Usuario administrativo no-root. |
-| `SUDO_MODE` | `"password"` | `password` (pide clave al usar `sudo`) o `nopasswd`. |
-| `ADMIN_PASSWORD_HASH` | `""` | Hash opcional (`openssl passwd -6`) para modo no interactivo. |
-| `SSH_PUBLIC_KEYS` | *(requerido)* | Arreglo Bash con una o más llaves públicas OpenSSH. |
-| `SSH_PORT` | `"22"` | Puerto SSH final (`1`–`65535`). |
-| `ENABLE_UFW` | `"yes"` | Activa el firewall UFW (`yes`/`no`). |
-| `EXTRA_UFW_PORTS` | `""` | Puertos extra separados por espacio (ej. `"80/tcp 443/tcp"`). |
-| `ENABLE_FAIL2BAN` | `"yes"` | Activa Fail2Ban para SSH (`yes`/`no`). |
-| `FAIL2BAN_IGNOREIP` | `""` | IPs o redes en lista blanca separadas por espacio. |
-| `ENABLE_UNATTENDED_UPGRADES` | `"yes"` | Actualizaciones automáticas (`yes`/`no`), junto a `AUTO_REBOOT` y `AUTO_REBOOT_TIME`. |
-| `ENABLE_MOTD` | `"yes"` | Instala el banner ASCII Art y el panel de estado al iniciar sesión. |
-| `MOTD_TEXT` | `""` | Texto del banner (vacío = usa `SERVER_HOSTNAME`). |
+| `SERVER_HOSTNAME` | `"debian-server"` | Server name (registered in `/etc/hosts`). |
+| `SERVER_IP` | `""` *(auto-detect)* | Server public IP to associate with the hostname in `/etc/hosts`. |
+| `TIMEZONE` | `"UTC"` | IANA timezone (e.g. `UTC`, `America/Mexico_City`). |
+| `ADMIN_USER` | `"adminops"` | Non-root administrative user. |
+| `SUDO_MODE` | `"password"` | `password` (prompts for password on `sudo`) or `nopasswd`. |
+| `ADMIN_PASSWORD_HASH` | `""` | Optional hash (`openssl passwd -6`) for non-interactive mode. |
+| `SSH_PUBLIC_KEYS` | *(required)* | Bash array with one or more OpenSSH public keys. |
+| `SSH_PORT` | `"22"` | Final SSH port (`1`–`65535`). |
+| `ENABLE_UFW` | `"yes"` | Enables UFW firewall (`yes`/`no`). |
+| `EXTRA_UFW_PORTS` | `""` | Space-separated extra ports (e.g. `"80/tcp 443/tcp"`). |
+| `ENABLE_FAIL2BAN` | `"yes"` | Enables Fail2Ban for SSH (`yes`/`no`). |
+| `FAIL2BAN_IGNOREIP` | `""` | Space-separated whitelisted IPs or networks. |
+| `ENABLE_UNATTENDED_UPGRADES` | `"yes"` | Automatic updates (`yes`/`no`), along with `AUTO_REBOOT` and `AUTO_REBOOT_TIME`. |
+| `ENABLE_MOTD` | `"yes"` | Installs the ASCII Art banner and login status panel. |
+| `MOTD_TEXT` | `""` | Banner text (empty = uses `SERVER_HOSTNAME`). |
 | `MOTD_COLOR` | `"lime"` | `lime`, `green`, `cyan`, `magenta`, `pink`, `orange`, `yellow`, `purple`, `blue`, `red`, `toxic`, `synthwave`, `rainbow`. |
-| `MOTD_ART_STYLE` | `"claude"` | Diseño ASCII Art: `claude`, `hermes`, `shadow`, `block` (`██`) o `ascii` (`##`). |
-| `CONFIRM_SSH_HARDENING` | `"NO"` | Cambia a `"YES"` tras probar el acceso SSH con llave. |
+| `MOTD_ART_STYLE` | `"claude"` | ASCII Art design: `claude`, `hermes`, `shadow`, `block` (`██`), or `ascii` (`##`). |
+| `CONFIRM_SSH_HARDENING` | `"NO"` | Change to `"YES"` after testing key-based SSH access. |
 
 ---
 
-## Uso con Agentes IA (Autónomo y Remoto)
+## Using with AI Agents (Autonomous & Remote)
 
-El repositorio incluye un **Agent Skill** (`.agents/skills/server-bootstrap/SKILL.md`) y un **orquestador remoto** (`scripts/remote-bootstrap.sh`) para que cualquier agente IA compatible (Antigravity, Claude Code, Codex, Gemini CLI, etc.) configure un servidor Debian 13 a distancia pasando únicamente IP/DNS, credencial inicial (password o llave SSH) e indicaciones en lenguaje natural.
+The repository includes an **Agent Skill** (`.agents/skills/server-bootstrap/SKILL.md`) and a **remote orchestrator** (`scripts/remote-bootstrap.sh`) so any compatible AI agent (Antigravity, Claude Code, Codex, Gemini CLI, etc.) can configure a remote Debian 13 server given only an IP/DNS, initial credentials (password or SSH key), and natural-language instructions.
 
-- **Instalación global del skill** (para usarlo desde cualquier proyecto):
+- **Global skill installation** (to use it from any project):
 
 ```bash
 bash scripts/install-skill.sh
 ```
 
-- **Ejecución directa del orquestador remoto**:
+- **Direct execution of the remote orchestrator**:
 
 ```bash
 bash scripts/remote-bootstrap.sh \
   --host 203.0.113.10 \
   --ssh-user root \
-  --init-pass-file /ruta/segura/init_pass \
+  --init-pass-file /secure/path/init_pass \
   --hostname srv-prod-01 \
   --timezone America/Mexico_City \
   --admin-user adminops \
   --sudo-mode password \
-  --admin-pass-file /ruta/segura/admin_pass \
+  --admin-pass-file /secure/path/admin_pass \
   --pubkey ~/.ssh/id_ed25519.pub \
   --target-ssh-port 2222 \
   --extra-ufw-ports "80/tcp 443/tcp"
 ```
 
-El orquestador no requiere `git` ni `sshpass` en el servidor destino, no deja contraseñas en claro en `config.env` ni en `/var/log/server-bootstrap.log`, y valida el acceso SSH + `sudo` desde fuera antes de endurecer OpenSSH o cerrar el puerto anterior.
+The orchestrator does not require `git` or `sshpass` on the target server, never leaves plaintext passwords in `config.env` or `/var/log/server-bootstrap.log`, and validates SSH + `sudo` access from outside before hardening OpenSSH or closing the old port.
 
 ---
 
-## Estructura del proyecto
+## Project Structure
 
 ```text
 server-bootstrap/
 ├── .agents/skills/server-bootstrap/
-│   └── SKILL.md            # Skill estándar para agentes IA
-├── AGENTS.md               # Guía rápida para agentes en el repo
-├── bootstrap.sh            # Orquestador principal y CLI en el servidor
-├── config.env.example      # Plantilla comentada de configuración
-├── README.md               # Documentación
+│   └── SKILL.md            # Standard skill for AI agents
+├── AGENTS.md               # Quick guide for agents in the repo
+├── bootstrap.sh            # Main orchestrator and CLI on the server
+├── config.env.example      # Commented configuration template
+├── README.md               # Documentation
 └── scripts/
-    ├── common.sh           # Validaciones, utilidades y manejo de estado
-    ├── tui.sh              # Asistente TUI y motor de ASCII Art en Bash puro
-    ├── remote-bootstrap.sh # Orquestador remoto autónomo (SSH + fases)
-    ├── install-skill.sh    # Instalador global del skill para agentes IA
-    ├── 01-system.sh        # Paquetes, usuario, sudo, llaves, prompt y MOTD
-    ├── 02-security.sh      # Endurecimiento SSH, transición de puerto, UFW y Fail2Ban
-    └── 03-verify.sh        # Diagnóstico y resumen de verificación
+    ├── common.sh           # Validations, utilities, and state management
+    ├── tui.sh              # TUI wizard and pure-Bash ASCII Art engine
+    ├── remote-bootstrap.sh # Autonomous remote orchestrator (SSH + phases)
+    ├── install-skill.sh    # Global AI agent skill installer
+    ├── 01-system.sh        # Packages, user, sudo, keys, prompt, and MOTD
+    ├── 02-security.sh      # SSH hardening, port transition, UFW, and Fail2Ban
+    └── 03-verify.sh        # Diagnostics and verification summary
 ```

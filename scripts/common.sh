@@ -47,7 +47,7 @@ die()  { printf '\n%s[ERROR] %s%s\n' "$C_RED" "$*" "$C_RESET" >&2; exit 1; }
 
 on_err() {
   local code=$1 line=$2 src=$3 cmd=$4
-  printf '\n%s[ERROR] %s:%s: «%s» terminó con código %s%s\n' \
+  printf '\n%s[ERROR] %s:%s: "%s" exited with code %s%s\n' \
     "$C_RED" "${src##*/}" "$line" "$cmd" "$code" "$C_RESET" >&2
 }
 trap 'on_err "$?" "$LINENO" "${BASH_SOURCE[0]:-$0}" "$BASH_COMMAND"' ERR
@@ -68,18 +68,18 @@ confirm_yes() {
 
 require_root() {
   if [[ "${EUID}" -ne 0 ]]; then
-    die "Ejecuta con privilegios de root: sudo bash ${0##*/}"
+    die "Run with root privileges: sudo bash ${0##*/}"
   fi
 }
 
 require_debian() {
-  [[ -r /etc/os-release ]] || die "No se encuentra /etc/os-release."
+  [[ -r /etc/os-release ]] || die "/etc/os-release not found."
   local id version
   id="$(. /etc/os-release && printf '%s' "${ID:-}")"
   version="$(. /etc/os-release && printf '%s' "${VERSION_ID:-}")"
-  [[ "$id" == "debian" ]] || die "Este bootstrap está diseñado para Debian. Detectado: ${id:-desconocido}"
+  [[ "$id" == "debian" ]] || die "This bootstrap is designed for Debian. Detected: ${id:-unknown}"
   if [[ "$version" != "13" ]]; then
-    warn "Diseñado para Debian 13; detectado Debian ${version:-desconocido}."
+    warn "Designed for Debian 13; detected Debian ${version:-unknown}."
   fi
 }
 
@@ -348,7 +348,7 @@ valid_password_hash() {
 # ---------------------------------------------------------- configuración ---
 load_config() {
   local file="${BOOTSTRAP_CONFIG:-${ROOT_DIR}/config.env}" mode
-  [[ -f "$file" ]] || die "No existe ${file}. Créalo con: sudo bash bootstrap.sh --wizard"
+  [[ -f "$file" ]] || die "${file} does not exist. Create it with: sudo bash bootstrap.sh --wizard"
   mode="$(stat -c '%a' "$file")"
   if (( (8#$mode & 8#002) != 0 )); then
     die "${file} es escribible por cualquier usuario y se ejecuta como root. Corrige con: chmod 600 ${file}"
@@ -359,7 +359,7 @@ load_config() {
   # shellcheck disable=SC1090
   source "$file"
   if [[ -z "${SERVER_HOSTNAME:-}" ]] && grep -Eq '^[[:space:]]*HOSTNAME=' "$file"; then
-    warn "config.env usa HOSTNAME (obsoleto); renómbralo a SERVER_HOSTNAME."
+    warn "config.env uses HOSTNAME (deprecated); rename it to SERVER_HOSTNAME."
     SERVER_HOSTNAME="$HOSTNAME"
   fi
   CONFIG_FILE="$file"
@@ -388,25 +388,25 @@ validate_config() {
   MOTD_ART_STYLE="${MOTD_ART_STYLE:-claude}"
   CONFIRM_SSH_HARDENING="${CONFIRM_SSH_HARDENING:-NO}"
 
-  valid_hostname "$SERVER_HOSTNAME" || die "SERVER_HOSTNAME no válido: '${SERVER_HOSTNAME}'."
-  valid_single_ip "$SERVER_IP" || die "SERVER_IP no válida: '${SERVER_IP}' (indica la IP pública/primaria del servidor o déjala vacía para autodetección)."
-  valid_timezone "$TIMEZONE" || die "TIMEZONE no válida: '${TIMEZONE}' (ej.: America/Mexico_City)."
-  valid_username "$ADMIN_USER" || die "ADMIN_USER no válido: '${ADMIN_USER}' (minúsculas, dígitos, _ o -; no root)."
-  valid_sudo_mode "$SUDO_MODE" || die "SUDO_MODE debe ser password o nopasswd."
-  valid_password_hash "$ADMIN_PASSWORD_HASH" || die "ADMIN_PASSWORD_HASH no parece un hash crypt (ej.: salida de 'openssl passwd -6')."
-  valid_port "$SSH_PORT" || die "SSH_PORT debe estar entre 1 y 65535."
-  valid_ufw_ports "$EXTRA_UFW_PORTS" || die "EXTRA_UFW_PORTS no válido. Formato: '80/tcp 443/tcp 60000:61000/udp'."
-  valid_ip_list "$FAIL2BAN_IGNOREIP" || die "FAIL2BAN_IGNOREIP debe ser una lista de IPs/redes separadas por espacios."
-  valid_time "$AUTO_REBOOT_TIME" || die "AUTO_REBOOT_TIME debe tener formato HH:MM."
-  valid_motd_text "$MOTD_TEXT" || die "MOTD_TEXT admite hasta 40 caracteres: letras, dígitos, espacio y . _ ! -"
-  valid_color "$MOTD_COLOR" || die "MOTD_COLOR debe ser uno de: ${SB_COLOR_NAMES}."
-  valid_art_style "$MOTD_ART_STYLE" || die "MOTD_ART_STYLE debe ser uno de: ${SB_ART_STYLES}."
+  valid_hostname "$SERVER_HOSTNAME" || die "Invalid SERVER_HOSTNAME: '${SERVER_HOSTNAME}'."
+  valid_single_ip "$SERVER_IP" || die "Invalid SERVER_IP: '${SERVER_IP}' (specify the server's public/primary IP or leave empty for auto-detection)."
+  valid_timezone "$TIMEZONE" || die "Invalid TIMEZONE: '${TIMEZONE}' (e.g. America/Mexico_City)."
+  valid_username "$ADMIN_USER" || die "Invalid ADMIN_USER: '${ADMIN_USER}' (lowercase, digits, _ or -; not root)."
+  valid_sudo_mode "$SUDO_MODE" || die "SUDO_MODE must be password or nopasswd."
+  valid_password_hash "$ADMIN_PASSWORD_HASH" || die "ADMIN_PASSWORD_HASH does not look like a crypt hash (e.g. output of 'openssl passwd -6')."
+  valid_port "$SSH_PORT" || die "SSH_PORT must be between 1 and 65535."
+  valid_ufw_ports "$EXTRA_UFW_PORTS" || die "Invalid EXTRA_UFW_PORTS. Format: '80/tcp 443/tcp 60000:61000/udp'."
+  valid_ip_list "$FAIL2BAN_IGNOREIP" || die "FAIL2BAN_IGNOREIP must be a space-separated list of IPs/networks."
+  valid_time "$AUTO_REBOOT_TIME" || die "AUTO_REBOOT_TIME must have HH:MM format."
+  valid_motd_text "$MOTD_TEXT" || die "MOTD_TEXT allows up to 40 characters: letters, digits, space, and . _ ! -"
+  valid_color "$MOTD_COLOR" || die "MOTD_COLOR must be one of: ${SB_COLOR_NAMES}."
+  valid_art_style "$MOTD_ART_STYLE" || die "MOTD_ART_STYLE must be one of: ${SB_ART_STYLES}."
   [[ "$CONFIRM_SSH_HARDENING" == "YES" || "$CONFIRM_SSH_HARDENING" == "NO" ]] \
-    || die "CONFIRM_SSH_HARDENING debe ser YES o NO."
+    || die "CONFIRM_SSH_HARDENING must be YES or NO."
 
   local var
   for var in ENABLE_UFW ENABLE_FAIL2BAN ENABLE_UNATTENDED_UPGRADES AUTO_REBOOT ENABLE_PROMPT ENABLE_MOTD; do
-    valid_yesno "${!var}" || die "${var} debe ser yes o no."
+    valid_yesno "${!var}" || die "${var} must be yes or no."
   done
 
   # Llaves: SSH_PUBLIC_KEYS (array) + SSH_PUBLIC_KEY (formato anterior).
@@ -423,12 +423,12 @@ validate_config() {
   if [[ -n "${SSH_PUBLIC_KEY:-}" ]]; then
     SB_KEYS+=("$(trim "$SSH_PUBLIC_KEY")")
   fi
-  (( ${#SB_KEYS[@]} > 0 )) || die "Define al menos una llave en SSH_PUBLIC_KEYS."
+  (( ${#SB_KEYS[@]} > 0 )) || die "Define at least one key in SSH_PUBLIC_KEYS."
   for key in "${SB_KEYS[@]}"; do
-    if [[ "$key" == *AAAA_REEMPLAZAR* ]]; then
-      die "Reemplaza la llave de ejemplo de SSH_PUBLIC_KEYS por tu llave pública real."
+    if [[ "$key" == *AAAA_REEMPLAZAR* || "$key" == *AAAA_REPLACE* ]]; then
+      die "Replace the example key in SSH_PUBLIC_KEYS with your real public key."
     fi
-    valid_pubkey "$key" || die "Llave pública no válida: '${key:0:40}...'"
+    valid_pubkey "$key" || die "Invalid public key: '${key:0:40}...'"
   done
   return 0
 }

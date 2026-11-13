@@ -21,45 +21,45 @@ die()  { printf '\n%s[ERROR] %s%s\n' "$C_RED" "$*" "$C_RESET" >&2; exit 1; }
 
 usage() {
   cat <<'EOF'
-Uso: bash scripts/remote-bootstrap.sh --host <IP_O_DNS> [opciones]
+Usage: bash scripts/remote-bootstrap.sh --host <IP_OR_DNS> [options]
 
-Conexión inicial y secretos (las contraseñas NUNCA se pasan como flags CLI):
-  --host HOST                  IP o DNS del servidor Debian 13 destino (requerido)
-  --ssh-port PORT              Puerto SSH inicial (defecto: 22)
-  --ssh-user USER              Usuario SSH inicial: root o usuario con sudo (defecto: root)
-  --ssh-key FILE               Llave privada para la conexión inicial
-  --admin-ssh-key FILE         Llave privada para verificar el nuevo ADMIN_USER (si difiere)
-  --init-pass-file FILE        Archivo (chmod 600) con contraseña inicial SSH/sudo (o env SB_INIT_PASS)
-  --admin-pass-file FILE       Archivo (chmod 600) con contraseña para ADMIN_USER (o env SB_ADMIN_PASS)
-  --prompt-init-pass           Abre un modal nativo del SO (macOS/Linux/Windows/WSL) para pedir la contraseña inicial
-  --prompt-admin-pass          Abre un modal nativo del SO para pedir y confirmar la contraseña sudo de ADMIN_USER
+Initial connection & secrets (passwords are NEVER passed as CLI flags):
+  --host HOST                  Target Debian 13 server IP or DNS (required)
+  --ssh-port PORT              Initial SSH port (default: 22)
+  --ssh-user USER              Initial SSH user: root or sudo user (default: root)
+  --ssh-key FILE               Private key for initial connection
+  --admin-ssh-key FILE         Private key to verify the new ADMIN_USER (if different)
+  --init-pass-file FILE        File (chmod 600) with initial SSH/sudo password (or env SB_INIT_PASS)
+  --admin-pass-file FILE       File (chmod 600) with password for ADMIN_USER (or env SB_ADMIN_PASS)
+  --prompt-init-pass           Open a native OS modal (macOS/Linux/Windows/WSL) to prompt for the initial password
+  --prompt-admin-pass          Open a native OS modal to prompt and confirm the sudo password for ADMIN_USER
 
-Configuración del servidor (sobreescribe --config si se pasan ambos):
-  --config FILE                Archivo config.env base opcional
-  --hostname NAME              SERVER_HOSTNAME (defecto: debian-server)
-  --server-ip IP               SERVER_IP para /etc/hosts (defecto: autodetecta)
-  --timezone TZ                TIMEZONE IANA (defecto: UTC)
-  --admin-user USER            ADMIN_USER (defecto: adminops)
-  --sudo-mode MODE             password | nopasswd (defecto: password)
-  --admin-password-hash HASH   Hash crypt $6$... ya calculado (opcional)
-  --pubkey KEY_OR_FILE         Llave pública OpenSSH o ruta a .pub (repetible)
-  --target-ssh-port PORT       Puerto SSH final (defecto: 22)
-  --enable-ufw yes|no          Activar UFW (defecto: yes)
-  --extra-ufw-ports PORTS      Puertos extra UFW (ej. "80/tcp 443/tcp")
-  --enable-fail2ban yes|no     Activar Fail2Ban (defecto: yes)
-  --fail2ban-ignoreip IPS      Lista blanca Fail2Ban
-  --enable-unattended-upgrades yes|no (defecto: yes)
-  --auto-reboot yes|no         Reinicio automático para parches de kernel (defecto: no)
-  --auto-reboot-time HH:MM     Hora de reinicio automático (defecto: 04:00)
-  --enable-motd yes|no         Instalar MOTD ASCII Art (defecto: yes)
-  --motd-text TEXT             Texto del banner (vacío = SERVER_HOSTNAME)
-  --motd-color COLOR           Color del MOTD (defecto: lime)
-  --motd-style STYLE           Diseño del MOTD: claude|hermes|shadow|block|ascii (defecto: claude)
+Server configuration (overrides --config if both are passed):
+  --config FILE                Optional base config.env file
+  --hostname NAME              SERVER_HOSTNAME (default: debian-server)
+  --server-ip IP               SERVER_IP for /etc/hosts (default: auto-detect)
+  --timezone TZ                IANA TIMEZONE (default: UTC)
+  --admin-user USER            ADMIN_USER (default: adminops)
+  --sudo-mode MODE             password | nopasswd (default: password)
+  --admin-password-hash HASH   Pre-computed $6$... crypt hash (optional)
+  --pubkey KEY_OR_FILE         OpenSSH public key or path to .pub (repeatable)
+  --target-ssh-port PORT       Final SSH port (default: 22)
+  --enable-ufw yes|no          Enable UFW (default: yes)
+  --extra-ufw-ports PORTS      Extra UFW ports (e.g. "80/tcp 443/tcp")
+  --enable-fail2ban yes|no     Enable Fail2Ban (default: yes)
+  --fail2ban-ignoreip IPS      Fail2Ban whitelist
+  --enable-unattended-upgrades yes|no (default: yes)
+  --auto-reboot yes|no         Automatic reboot for kernel patches (default: no)
+  --auto-reboot-time HH:MM     Automatic reboot time (default: 04:00)
+  --enable-motd yes|no         Install ASCII Art MOTD (default: yes)
+  --motd-text TEXT             Banner text (empty = SERVER_HOSTNAME)
+  --motd-color COLOR           MOTD color (default: lime)
+  --motd-style STYLE           MOTD design: claude|hermes|shadow|block|ascii (default: claude)
 
-Otros:
-  --dry-run                    Valida conexión inicial, SO Debian y muestra plan sin aplicar cambios
-  --keep-remote-dir            Conserva el directorio temporal en el servidor destino
-  -h, --help                   Muestra esta ayuda
+Other:
+  --dry-run                    Validate initial connection, Debian OS, and show plan without applying changes
+  --keep-remote-dir            Keep temporary directory on the target server
+  -h, --help                   Show this help
 EOF
 }
 
@@ -153,13 +153,13 @@ while (( $# > 0 )); do
     --dry-run) DRY_RUN=1; shift ;;
     --keep-remote-dir) KEEP_REMOTE_DIR=1; shift ;;
     -h|--help) usage; exit 0 ;;
-    *) die "Opción desconocida: $1 (usa --help)" ;;
+    *) die "Unknown option: $1 (use --help)" ;;
   esac
 done
 
 [[ -n "$HOST" ]] || die "Debes especificar --host <IP_O_DNS>."
 [[ -f "${ROOT_DIR}/bootstrap.sh" && -f "${ROOT_DIR}/scripts/01-system.sh" ]] \
-  || die "No se encontró el paquete server-bootstrap en ${ROOT_DIR}."
+  || die "server-bootstrap bundle not found in ${ROOT_DIR}."
 
 command -v ssh >/dev/null 2>&1 || die "Se requiere el cliente 'ssh' en el equipo local."
 command -v tar >/dev/null 2>&1 || die "Se requiere 'tar' en el equipo local."
@@ -244,7 +244,7 @@ elif (( ${#SSH_PUBLIC_KEYS[@]} > 0 )); then
   done
 fi
 
-(( ${#RESOLVED_KEYS[@]} > 0 )) || die "Debes proporcionar al menos una llave pública (--pubkey o en --config)."
+(( ${#RESOLVED_KEYS[@]} > 0 )) || die "You must provide at least one public key (--pubkey or in --config)."
 
 if [[ "$SUDO_MODE" == "password" && -z "$ADMIN_PASSWORD_HASH" && -z "$ADMIN_PASS" && "$PROMPT_ADMIN_PASS" -eq 0 ]]; then
   die "SUDO_MODE=password requiere --prompt-admin-pass, --admin-pass-file / SB_ADMIN_PASS o --admin-password-hash."
@@ -270,20 +270,20 @@ trap cleanup EXIT
 
 # Si se solicitó captura modal (--prompt-init-pass / --prompt-admin-pass), abre el diálogo nativo del SO.
 if (( PROMPT_INIT_PASS == 1 )) && [[ -z "$INIT_PASS" ]]; then
-  log "Solicitando contraseña inicial (${INIT_SSH_USER}@${HOST}) mediante diálogo seguro del SO..."
+  log "Requesting initial password (${INIT_SSH_USER}@${HOST}) via secure OS dialog..."
   bash "${SCRIPT_DIR}/prompt-secret.sh" \
-    --title "Server Bootstrap — Acceso inicial (${HOST})" \
-    --prompt "Contraseña actual de '${INIT_SSH_USER}' para conectar a ${HOST}:${INIT_SSH_PORT}:" \
+    --title "Server Bootstrap — Initial Access (${HOST})" \
+    --prompt "Current password for '${INIT_SSH_USER}' to connect to ${HOST}:${INIT_SSH_PORT}:" \
     --out "${WORK_DIR}/prompted_init_pass"
   INIT_PASS="$(read_secret_file "${WORK_DIR}/prompted_init_pass")"
   rm -f "${WORK_DIR}/prompted_init_pass"
 fi
 
 if (( PROMPT_ADMIN_PASS == 1 )) && [[ -z "$ADMIN_PASS" ]]; then
-  log "Solicitando nueva contraseña sudo para '${ADMIN_USER}' en ${HOST} mediante diálogo seguro del SO..."
+  log "Requesting new sudo password for '${ADMIN_USER}' on ${HOST} via secure OS dialog..."
   bash "${SCRIPT_DIR}/prompt-secret.sh" \
-    --title "Server Bootstrap — Sudo para ${ADMIN_USER} (${HOST})" \
-    --prompt "Define la contraseña de sudo para el usuario '${ADMIN_USER}' en ${HOST}:" \
+    --title "Server Bootstrap — Sudo for ${ADMIN_USER} (${HOST})" \
+    --prompt "Set the sudo password for user '${ADMIN_USER}' on ${HOST}:" \
     --confirm \
     --out "${WORK_DIR}/prompted_admin_pass"
   ADMIN_PASS="$(read_secret_file "${WORK_DIR}/prompted_admin_pass")"
@@ -370,42 +370,42 @@ test_admin_ssh() {
 }
 
 # ----------------------------------------------------------- 1. Preflight ---
-log "1/5 Verificando conexión inicial (${INIT_SSH_USER}@${HOST}:${INIT_SSH_PORT})"
+log "1/5 Verifying initial connection (${INIT_SSH_USER}@${HOST}:${INIT_SSH_PORT})"
 if ! remote_os="$(init_ssh_exec ". /etc/os-release 2>/dev/null && printf '%s:%s' \"\${ID:-unknown}\" \"\${VERSION_ID:-unknown}\"")"; then
-  die "No se pudo conectar por SSH a ${INIT_SSH_USER}@${HOST}:${INIT_SSH_PORT}. Verifica IP/DNS, puerto o credenciales iniciales."
+  die "Could not connect via SSH to ${INIT_SSH_USER}@${HOST}:${INIT_SSH_PORT}. Check IP/DNS, port, or initial credentials."
 fi
-info "Sistema detectado: ${remote_os}"
+info "Detected OS: ${remote_os}"
 if [[ "${remote_os%%:*}" != "debian" ]]; then
-  die "El servidor destino no es Debian (${remote_os})."
+  die "Target server is not Debian (${remote_os})."
 fi
 
 if [[ "$INIT_SSH_USER" != "root" ]]; then
   if init_ssh_exec "sudo -n true" >/dev/null 2>&1; then
-    info "Privilegios sudo sin contraseña verificados para ${INIT_SSH_USER}."
+    info "Passwordless sudo privileges verified for ${INIT_SSH_USER}."
   elif [[ -n "$INIT_PASS" ]] && printf '%s\n' "$INIT_PASS" | init_ssh_exec "sudo -S -p '' true" >/dev/null 2>&1; then
     NEED_SUDO_PASS=1
-    info "Privilegios sudo con contraseña verificados para ${INIT_SSH_USER}."
+    info "Password-based sudo privileges verified for ${INIT_SSH_USER}."
   else
-    die "El usuario inicial '${INIT_SSH_USER}' no tiene sudo operativo (ni sin contraseña ni con SB_INIT_PASS)."
+    die "Initial user '${INIT_SSH_USER}' does not have working sudo (neither passwordless nor with SB_INIT_PASS)."
   fi
 fi
 
 if (( DRY_RUN == 1 )); then
-  log "[DRY-RUN] Preflight exitoso. Plan de configuración:"
-  info "Host: ${HOST} (inicial: ${INIT_SSH_USER}@:${INIT_SSH_PORT})"
+  log "[DRY-RUN] Preflight succeeded. Configuration plan:"
+  info "Host: ${HOST} (initial: ${INIT_SSH_USER}@:${INIT_SSH_PORT})"
   info "Hostname: ${SERVER_HOSTNAME} | Timezone: ${TIMEZONE}"
-  info "Admin user: ${ADMIN_USER} (sudo: ${SUDO_MODE}, llaves: ${#RESOLVED_KEYS[@]})"
-  info "Puerto SSH final: ${SSH_PORT} | UFW: ${ENABLE_UFW} (${EXTRA_UFW_PORTS:-solo SSH}) | Fail2Ban: ${ENABLE_FAIL2BAN}"
+  info "Admin user: ${ADMIN_USER} (sudo: ${SUDO_MODE}, keys: ${#RESOLVED_KEYS[@]})"
+  info "Final SSH port: ${SSH_PORT} | UFW: ${ENABLE_UFW} (${EXTRA_UFW_PORTS:-SSH only}) | Fail2Ban: ${ENABLE_FAIL2BAN}"
   info "MOTD: ${ENABLE_MOTD} (${MOTD_COLOR}/${MOTD_ART_STYLE})"
   exit 0
 fi
 
-# --------------------------------------------- 2. Subida del bundle + config ---
-log "2/5 Preparando configuración y enviando scripts al servidor"
+# --------------------------------------------- 2. Upload bundle + config ---
+log "2/5 Preparing configuration and uploading scripts to server"
 
 if [[ "$SUDO_MODE" == "password" && -z "$ADMIN_PASSWORD_HASH" ]]; then
   ADMIN_PASSWORD_HASH="$(printf '%s\n' "$ADMIN_PASS" | init_ssh_exec "openssl passwd -6 -stdin")"
-  [[ "$ADMIN_PASSWORD_HASH" == \$6\$* ]] || die "No se pudo generar el hash SHA-512 de la contraseña en el servidor remoto."
+  [[ "$ADMIN_PASSWORD_HASH" == \$6\$* ]] || die "Could not generate SHA-512 password hash on the remote server."
 fi
 
 LOCAL_CFG="${WORK_DIR}/config.env"
@@ -439,69 +439,69 @@ LOCAL_CFG="${WORK_DIR}/config.env"
 chmod 600 "$LOCAL_CFG"
 
 REMOTE_DIR="$(init_ssh_exec "d=\$(mktemp -d /tmp/server-bootstrap.XXXXXX) && chmod 700 \"\$d\" && printf '%s' \"\$d\"")"
-[[ -n "$REMOTE_DIR" ]] || die "No se pudo crear el directorio temporal remoto."
+[[ -n "$REMOTE_DIR" ]] || die "Could not create remote temporary directory."
 
 tar -C "$ROOT_DIR" -cf - bootstrap.sh config.env.example scripts | init_ssh_exec "tar -C '${REMOTE_DIR}' -xf -"
 init_ssh_exec "umask 077 && cat >'${REMOTE_DIR}/config.env' && chmod 600 '${REMOTE_DIR}/config.env'" <"$LOCAL_CFG"
 
 # ----------------------------------------------------------- 3. Fase 01 ---
-log "3/5 Ejecutando Fase 01 (sistema, usuario ${ADMIN_USER}, llaves SSH y MOTD)"
+log "3/5 Running Phase 01 (system, user ${ADMIN_USER}, SSH keys, and MOTD)"
 run_remote_root "env BOOTSTRAP_NONINTERACTIVE=1 BOOTSTRAP_CONFIG='${REMOTE_DIR}/config.env' bash '${REMOTE_DIR}/scripts/01-system.sh'"
 
 active_ssh_port="$(run_remote_root "sshd -T 2>/dev/null | awk '\$1==\"port\"{print \$2; exit}'" || true)"
 active_ssh_port="${active_ssh_port:-$INIT_SSH_PORT}"
 
-log "Comprobando conexión externa independiente como ${ADMIN_USER}@${HOST}:${active_ssh_port}"
+log "Checking independent external connection as ${ADMIN_USER}@${HOST}:${active_ssh_port}"
 if ! test_admin_ssh "$active_ssh_port" "true"; then
-  die "FALLO EN COMPROBACIÓN FASE 01: No se pudo iniciar sesión SSH con llave como ${ADMIN_USER}@${HOST}:${active_ssh_port}. No se aplicó el endurecimiento SSH (tu acceso inicial sigue intacto)."
+  die "PHASE 01 CHECK FAILED: Could not log in via key-based SSH as ${ADMIN_USER}@${HOST}:${active_ssh_port}. SSH hardening was NOT applied (your initial access remains intact)."
 fi
-info "Login SSH con llave verificado para ${ADMIN_USER}."
+info "Key-based SSH login verified for ${ADMIN_USER}."
 
 if [[ "$SUDO_MODE" == "nopasswd" ]]; then
   if ! test_admin_ssh "$active_ssh_port" "sudo -n true"; then
-    die "FALLO EN COMPROBACIÓN SUDO: ${ADMIN_USER} entró por SSH pero 'sudo -n true' falló. No se endureció SSH."
+    die "SUDO CHECK FAILED: ${ADMIN_USER} logged in via SSH but 'sudo -n true' failed. SSH was NOT hardened."
   fi
-  info "Acceso sudo (NOPASSWD) verificado."
+  info "Passwordless sudo access (NOPASSWD) verified."
 elif [[ -n "$ADMIN_PASS" ]]; then
   if ! printf '%s\n' "$ADMIN_PASS" | test_admin_ssh "$active_ssh_port" "sudo -S -p '' -v"; then
-    die "FALLO EN COMPROBACIÓN SUDO: ${ADMIN_USER} entró por SSH pero la contraseña de sudo no funcionó. No se endureció SSH."
+    die "SUDO CHECK FAILED: ${ADMIN_USER} logged in via SSH but the sudo password did not work. SSH was NOT hardened."
   fi
-  info "Acceso sudo (con contraseña) verificado."
+  info "Password-based sudo access verified."
 else
   if ! test_admin_ssh "$active_ssh_port" "id -nG | grep -qw sudo"; then
-    die "FALLO EN COMPROBACIÓN SUDO: ${ADMIN_USER} no pertenece al grupo sudo."
+    die "SUDO CHECK FAILED: ${ADMIN_USER} is not in the sudo group."
   fi
-  info "Grupo sudo verificado (contraseña definida por hash externo)."
+  info "sudo group verified (password set via external hash)."
 fi
 
-# ----------------------------------------------------------- 4. Fase 02 ---
-log "4/5 Ejecutando Fase 02 (endurecimiento SSH, UFW y Fail2Ban)"
+# ----------------------------------------------------------- 4. Phase 02 ---
+log "4/5 Running Phase 02 (SSH hardening, UFW, and Fail2Ban)"
 run_remote_root "sed -i \"s/^CONFIRM_SSH_HARDENING=.*/CONFIRM_SSH_HARDENING='YES'/\" '${REMOTE_DIR}/config.env'"
 
 if [[ "$SSH_PORT" != "$active_ssh_port" ]]; then
-  info "Cambio de puerto detectado (${active_ssh_port} -> ${SSH_PORT}): iniciando transición segura en dos pasos."
+  info "Port change detected (${active_ssh_port} -> ${SSH_PORT}): starting safe two-step transition."
   run_remote_root "env BOOTSTRAP_NONINTERACTIVE=1 BOOTSTRAP_CONFIG='${REMOTE_DIR}/config.env' bash '${REMOTE_DIR}/scripts/02-security.sh' --transition-only"
 
-  log "Comprobando conexión externa en el nuevo puerto SSH ${SSH_PORT}/tcp"
+  log "Checking external connection on new SSH port ${SSH_PORT}/tcp"
   if ! test_admin_ssh "$SSH_PORT" "true"; then
-    die "FALLO EN COMPROBACIÓN DE PUERTO ${SSH_PORT}: El servidor no responde por SSH en ${HOST}:${SSH_PORT}. Se mantuvieron activos los puertos (${active_ssh_port} y ${SSH_PORT}) para evitar bloqueo. Revisa el firewall de tu proveedor cloud (Security Group) y vuelve a ejecutar."
+    die "PORT ${SSH_PORT} CHECK FAILED: Server is not responding to SSH on ${HOST}:${SSH_PORT}. Both ports (${active_ssh_port} and ${SSH_PORT}) were kept open to prevent lockout. Check your cloud provider firewall (Security Group) and re-run."
   fi
-  info "Conexión en nuevo puerto ${SSH_PORT}/tcp verificada. Cerrando puerto anterior (${active_ssh_port})..."
+  info "Connection on new port ${SSH_PORT}/tcp verified. Closing old port (${active_ssh_port})..."
 fi
 
 run_remote_root "env BOOTSTRAP_NONINTERACTIVE=1 BOOTSTRAP_CONFIG='${REMOTE_DIR}/config.env' bash '${REMOTE_DIR}/scripts/02-security.sh'"
 
-# ----------------------------------------------------------- 5. Fase 03 ---
-log "5/5 Ejecutando Fase 03 (verificación final)"
+# ----------------------------------------------------------- 5. Phase 03 ---
+log "5/5 Running Phase 03 (final verification)"
 run_remote_root "env BOOTSTRAP_NONINTERACTIVE=1 BOOTSTRAP_CONFIG='${REMOTE_DIR}/config.env' bash '${REMOTE_DIR}/scripts/03-verify.sh'"
 
 if (( KEEP_REMOTE_DIR == 0 )); then
-  run_remote_root "rm -rf '${REMOTE_DIR}'" || warn "No se pudo eliminar ${REMOTE_DIR} en el servidor."
+  run_remote_root "rm -rf '${REMOTE_DIR}'" || warn "Could not remove ${REMOTE_DIR} on the server."
 fi
 
-log "Bootstrap remoto finalizado con éxito."
+log "Remote bootstrap completed successfully."
 if [[ -n "$ADMIN_SSH_KEY" ]]; then
-  info "Comando de acceso: ssh -p ${SSH_PORT} -i ${ADMIN_SSH_KEY} ${ADMIN_USER}@${HOST}"
+  info "Access command: ssh -p ${SSH_PORT} -i ${ADMIN_SSH_KEY} ${ADMIN_USER}@${HOST}"
 else
-  info "Comando de acceso: ssh -p ${SSH_PORT} ${ADMIN_USER}@${HOST}"
+  info "Access command: ssh -p ${SSH_PORT} ${ADMIN_USER}@${HOST}"
 fi
