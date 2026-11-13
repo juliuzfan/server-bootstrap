@@ -1,89 +1,100 @@
 # Debian Server Bootstrap
 
-Bootstrap mínimo para una instalación limpia de **Debian 13**. Configura el sistema base y aplica un endurecimiento inicial de SSH, firewall y Fail2Ban.
+Bootstrap mínimo e interactivo (TUI en Bash puro, sin dependencias externas) para una instalación limpia de **Debian 13 (Trixie)**. Prepara el sistema base, configura `sudo`, endurece OpenSSH con transición segura de puerto, activa UFW y Fail2Ban, e instala un prompt Bash moderno en colores junto con un MOTD con banner ASCII Art neón.
 
-> Ejecuta únicamente en servidores nuevos o después de revisar qué configuraciones existentes serán modificadas. Mantén acceso a la consola del proveedor.
+> Ejecuta en servidores nuevos o tras revisar qué archivos serán gestionados. Mantén siempre abierta una sesión root y acceso a la consola de tu proveedor.
 
 ## Incluye
 
-- Actualización de paquetes e instalación de utilidades.
-- Hostname, zona horaria y sincronización horaria.
-- Usuario administrativo con `sudo` y llave SSH pública.
-- Endurecimiento de OpenSSH.
-- UFW con entrada denegada por defecto y salida permitida.
-- Fail2Ban para SSH.
-- Actualizaciones automáticas mediante `unattended-upgrades`.
-- Verificación final.
+- **Asistente TUI guiado en Bash puro**: menús con flechas `↑`/`↓`, validación en vivo, detección automática de llave SSH existente y vista previa en color del banner ASCII Art.
+- **Sistema base**: actualización no interactiva segura (`--force-confdef`/`--force-confold`), utilidades esenciales, zona horaria, `hostname` y resolución en `/etc/hosts`, sincronización NTP con `chrony`.
+- **Usuario administrativo y `sudo` funcional**: creación de cuenta, soporte para múltiples llaves públicas (`ed25519`, `rsa`, `ecdsa`, `sk-*` FIDO2) y configuración de `sudo` con contraseña (`SUDO_MODE=password` o `ADMIN_PASSWORD_HASH`) o sin contraseña (`SUDO_MODE=nopasswd` validado con `visudo`).
+- **Endurecimiento de OpenSSH sin bloqueos**: validación previa con `sshd -t`, respaldo automático con rollback si falla y **transición segura en dos pasos** cuando `SSH_PORT` cambia (abre ambos puertos, verifica acceso en el nuevo y cierra el antiguo).
+- **Firewall UFW**: política `deny incoming` / `allow outgoing`, soporte IPv6, puertos adicionales vía `EXTRA_UFW_PORTS` y reconciliación automática de reglas obsoletas al cambiar de puerto.
+- **Fail2Ban para SSH**: instala explícitamente `python3-systemd` y `nftables` para el backend `systemd`, y soporta lista blanca (`FAIL2BAN_IGNOREIP`).
+- **Actualizaciones automáticas**: `unattended-upgrades` con reinicio programado opcional (`AUTO_REBOOT` / `AUTO_REBOOT_TIME`).
+- **Prompt Bash moderno y MOTD ASCII Art**:
+  - Prompt de dos líneas en colores para `root` (distintivo rojo `ROOT`) y el usuario administrador, con código de salida (`✔`/`✘`), hora, `usuario@host`, ruta y rama Git.
+  - Banner ASCII Art generado en Bash puro con texto personalizable (o `SERVER_HOSTNAME` por defecto), estilos `block` (`██`) o `ascii` (`##`), y colores neón/gradientes (`lime`, `green`, `cyan`, `magenta`, `pink`, `orange`, `yellow`, `purple`, `blue`, `red`, `toxic`, `synthwave`, `rainbow`), acompañado de un resumen de estado (OS, IP, uptime, carga, RAM y disco).
+- **Registro y verificación**: bitácora completa en `/var/log/server-bootstrap.log` y chequeo final con `scripts/03-verify.sh`.
 
 ## Requisitos
 
-- Debian 13 (Trixie), systemd y acceso root/sudo.
-- Llave SSH pública del operador.
-- Acceso a consola del proveedor por si se requiere recuperación.
-- Conectividad a los repositorios Debian.
+- Debian 13 (Trixie), `systemd` y acceso `root` / `sudo`.
+- Al menos una llave SSH pública del operador.
+- Acceso a consola del proveedor por seguridad.
 
-## Uso
+## Uso rápido (TUI guiado)
 
 ```bash
-git clone <URL-DE-TU-REPOSITORIO>
-cd debian-server-bootstrap
+git clone https://github.com/juliuzfan/server-bootstrap.git
+cd server-bootstrap
+sudo bash bootstrap.sh
+```
+
+Si `config.env` no existe (o ejecutas `sudo bash bootstrap.sh --wizard`), se abrirá el asistente TUI paso a paso para generarlo con permisos `600`.
+
+### Uso con archivo `config.env` manual o automatizado (CI/CD / cloud-init)
+
+```bash
 cp config.env.example config.env
+chmod 600 config.env
 nano config.env
 sudo bash bootstrap.sh
 ```
 
-Edita al menos `HOSTNAME`, `TIMEZONE`, `ADMIN_USER` y `SSH_PUBLIC_KEY`. No coloques una llave privada en este archivo.
-
-El bootstrap instala la llave del usuario y prepara el sistema. **Antes de endurecer SSH**, abre otra terminal y confirma que puedes entrar con la llave:
+Para ejecuciones desatendidas (requiere `CONFIRM_SSH_HARDENING="YES"` y `SUDO_MODE="nopasswd"` o `ADMIN_PASSWORD_HASH` definido):
 
 ```bash
-ssh -p 22 adminops@IP_DEL_SERVIDOR
+sudo bash bootstrap.sh --yes --config /ruta/a/config.env
 ```
 
-Vuelve a la sesión original y confirma `YES` cuando el orquestador lo solicite. Solo entonces deshabilitará el login SSH de root y la autenticación por contraseña.
+### Flujo de verificación antes de endurecer SSH
 
-Si no confirmas la prueba, puedes ejecutar más tarde:
+1. Tras completar la **Fase 01**, el orquestador se pausa y muestra el comando exacto para probar en **otra terminal** el login con llave y `sudo -v`.
+2. Solo cuando escribes `YES` ejecuta la **Fase 02** (deshabilita login de `root` y contraseñas por SSH).
+3. Si configuraste un `SSH_PORT` distinto del actual, la Fase 02 mantiene temporalmente ambos puertos abiertos en `sshd` y UFW hasta que confirmes que puedes entrar por el nuevo puerto.
+
+También puedes ejecutar cada fase por separado:
 
 ```bash
-sudo bash scripts/02-security.sh
+sudo bash scripts/01-system.sh
+sudo bash scripts/02-security.sh   # requiere CONFIRM_SSH_HARDENING="YES" en config.env
 sudo bash scripts/03-verify.sh
 ```
 
-## Configuración
+## Opciones principales en `config.env`
 
-Consulta los comentarios de `config.env.example`. Opciones principales:
-
-- `SSH_PORT`: puerto SSH que se configurará. Asegúrate de que el proveedor/firewall externo permita ese puerto.
-- `ENABLE_UFW`: `yes` o `no`.
-- `ENABLE_FAIL2BAN`: `yes` o `no`.
-- `ENABLE_UNATTENDED_UPGRADES`: `yes` o `no`.
-- `CONFIRM_SSH_HARDENING`: debe ser `YES` para permitir el endurecimiento SSH.
-
-## Advertencias
-
-- El firewall permite únicamente el puerto SSH configurado. **Añade antes de ejecutar reglas adicionales para HTTP/HTTPS, VPN, bases de datos u otros servicios que necesites.**
-- UFW no sustituye el firewall del proveedor. Revisa ambos.
-- Docker puede manipular reglas de red y publicar puertos que requieren una política adicional. No asumas que UFW controla por sí solo todo el tráfico de contenedores.
-- El script no cambia el puerto SSH del daemon antes de validar el archivo, pero un puerto distinto de 22 requiere que el acceso de red externo esté preparado.
-- `config.env` se carga como shell. No uses archivos de configuración de fuentes no confiables.
-- Se conserva el port forwarding TCP de OpenSSH para permitir túneles SSH (`ssh -L`/`ssh -R`); restringe esa capacidad solo si tu operación lo permite.
-- No ejecuta reinicios automáticos.
-- Los scripts son idempotentes en sus operaciones principales, pero respaldan el drop-in SSH previo y no intentan reconciliar configuraciones complejas preexistentes.
+| Variable | Descripción |
+| :--- | :--- |
+| `SERVER_HOSTNAME` | Nombre del host (también actualiza `/etc/hosts`). |
+| `TIMEZONE` | Zona horaria IANA (`UTC` por defecto; ej. `America/Mexico_City`). |
+| `ADMIN_USER` | Usuario administrativo no-root. |
+| `SUDO_MODE` | `password` (pide contraseña en `sudo`) o `nopasswd` (`NOPASSWD` en `/etc/sudoers.d`). |
+| `ADMIN_PASSWORD_HASH` | Hash opcional (`openssl passwd -6`) para `SUDO_MODE=password` sin prompt interactivo. |
+| `SSH_PUBLIC_KEYS` | Arreglo Bash con una o más llaves públicas OpenSSH. |
+| `SSH_PORT` | Puerto SSH final (`1`–`65535`). |
+| `ENABLE_UFW` / `EXTRA_UFW_PORTS` | Activa UFW (`yes`/`no`) y abre puertos extra (ej. `"80/tcp 443/tcp"`). |
+| `ENABLE_FAIL2BAN` / `FAIL2BAN_IGNOREIP` | Activa Fail2Ban (`yes`/`no`) e IPs/redes en lista blanca. |
+| `ENABLE_UNATTENDED_UPGRADES` | Activa parches automáticos (`yes`/`no`), junto con `AUTO_REBOOT` y `AUTO_REBOOT_TIME`. |
+| `ENABLE_PROMPT` | Instala el prompt Bash moderno para `root` y `ADMIN_USER` (`yes`/`no`). |
+| `ENABLE_MOTD` | Instala el MOTD con ASCII Art y resumen del sistema (`yes`/`no`). |
+| `MOTD_TEXT` | Texto del banner ASCII Art (vacío = usa `SERVER_HOSTNAME`). |
+| `MOTD_COLOR` | `lime` (default), `green`, `cyan`, `magenta`, `pink`, `orange`, `yellow`, `purple`, `blue`, `red`, `toxic`, `synthwave`, `rainbow`. |
+| `MOTD_ART_STYLE` | `block` (`██`) o `ascii` (`##`). |
+| `CONFIRM_SSH_HARDENING` | `NO` por defecto; debe ser `YES` para aplicar `02-security.sh`. |
 
 ## Estructura
 
 ```text
-debian-server-bootstrap/
+server-bootstrap/
 ├── bootstrap.sh
 ├── config.env.example
 ├── README.md
 └── scripts/
     ├── common.sh
+    ├── tui.sh
     ├── 01-system.sh
     ├── 02-security.sh
     └── 03-verify.sh
 ```
-
-## Licencia
-
-Uso interno. Añade la licencia que corresponda a tu repositorio.
