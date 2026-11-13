@@ -44,7 +44,7 @@ El proceso se divide en fases con pausas de confirmación para que nunca cierres
 
 ### Sistema y mantenimiento
 - **Actualización y herramientas**: actualiza paquetes de forma no interactiva e instala utilidades esenciales (`htop`, `neovim` como reemplazo del sistema para `vim`/`vi`/`editor`, `wget`, `curl`, `git`, `lsof`, `dnsutils`, `sharutils`).
-- **Identidad, locales y hora**: configura el `hostname` (incluyendo `/etc/hosts`), habilita el locale `en_US.UTF-8`, define la zona horaria (`UTC` por defecto) y activa `chrony` para sincronización NTP.
+- **Identidad, `/etc/hosts`, locales y hora**: configura el `hostname`, registra en `/etc/hosts` la IP pública del servidor (`SERVER_IP` elegida o autodetectada) junto con `127.0.1.1`, habilita el locale `en_US.UTF-8`, define la zona horaria (`UTC` por defecto) y activa `chrony` para sincronización NTP.
 - **Parches automáticos**: activa `unattended-upgrades` con opción de reinicio automático en horario programado si el kernel lo requiere.
 
 ### Acceso y seguridad
@@ -56,7 +56,7 @@ El proceso se divide en fases con pausas de confirmación para que nunca cierres
 
 ### Experiencia en terminal (`.bashrc` + Prompt + MOTD)
 - **`.bashrc` y Prompt listos sin preguntar**: instala automáticamente en `root`, el usuario administrador y `/etc/skel` tu `.bashrc` estándar (encabezado Roster.li con año y hostname dinámicos, prompt en colores con rama Git `on <branch>`, aliases de navegación/seguridad/`nvim`/`gst` y la función `password_generator`).
-- **MOTD de bienvenida con ASCII Art**: genera un banner en Bash puro con el nombre del servidor o el texto que elijas, estilo de bloques (`██` o `##`), colores neón o gradientes (`lime`, `cyan`, `magenta`, `toxic`, `synthwave`, `rainbow`, etc.) y un resumen de recursos al iniciar sesión (OS, IP, uptime, carga, RAM y disco).
+- **MOTD de bienvenida con ASCII Art**: genera un banner en Bash puro seleccionable por nombre (`claude` estilo Claude Code, `hermes` estilo Hermes Agent, `shadow` 3D ANSI, `block` o `ascii`), con el nombre del servidor o el texto que elijas, colores neón o gradientes (`lime`, `cyan`, `magenta`, `toxic`, `synthwave`, `rainbow`, etc.) y un resumen de recursos al iniciar sesión (OS, IP, uptime, carga, RAM y disco).
 
 ---
 
@@ -97,7 +97,8 @@ Toda la ejecución queda registrada en `/var/log/server-bootstrap.log`.
 
 | Variable | Por defecto | Descripción |
 | :--- | :--- | :--- |
-| `SERVER_HOSTNAME` | `"debian-server"` | Nombre del servidor (actualiza también `/etc/hosts`). |
+| `SERVER_HOSTNAME` | `"debian-server"` | Nombre del servidor (se registra en `/etc/hosts`). |
+| `SERVER_IP` | `""` *(autodetecta)* | IP pública del servidor para asociarla al hostname en `/etc/hosts`. |
 | `TIMEZONE` | `"UTC"` | Zona horaria IANA (ej. `UTC`, `America/Mexico_City`). |
 | `ADMIN_USER` | `"adminops"` | Usuario administrativo no-root. |
 | `SUDO_MODE` | `"password"` | `password` (pide clave al usar `sudo`) o `nopasswd`. |
@@ -112,7 +113,7 @@ Toda la ejecución queda registrada en `/var/log/server-bootstrap.log`.
 | `ENABLE_MOTD` | `"yes"` | Instala el banner ASCII Art y el panel de estado al iniciar sesión. |
 | `MOTD_TEXT` | `""` | Texto del banner (vacío = usa `SERVER_HOSTNAME`). |
 | `MOTD_COLOR` | `"lime"` | `lime`, `green`, `cyan`, `magenta`, `pink`, `orange`, `yellow`, `purple`, `blue`, `red`, `toxic`, `synthwave`, `rainbow`. |
-| `MOTD_ART_STYLE` | `"block"` | `block` (`██`) o `ascii` (`##`). |
+| `MOTD_ART_STYLE` | `"claude"` | Diseño ASCII Art: `claude`, `hermes`, `shadow`, `block` (`██`) o `ascii` (`##`). |
 | `CONFIRM_SSH_HARDENING` | `"NO"` | Cambia a `"YES"` tras probar el acceso SSH con llave. |
 
 ---

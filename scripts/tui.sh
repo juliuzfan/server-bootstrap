@@ -56,46 +56,153 @@ sb_glyph_rows() {
   esac
 }
 
-# Renderiza texto ($1) con color ($2: lime, cyan, rainbow, ...) y estilo ($3: block | ascii).
-render_ascii_banner() {
-  local text="${1:-SERVER}" color="${2:-lime}" style="${3:-block}"
-  text="$(printf '%s' "$text" | tr '[:lower:]' '[:upper:]')"
-  (( ${#text} > 28 )) && text="${text:0:28}"
-
-  local -a pal
-  read -ra pal <<<"$(motd_palette "$color")"
-
-  local on="██" off="  "
-  if [[ "$style" == "ascii" ]]; then
-    on="##"
-    off="  "
-  fi
-
-  local r0="" r1="" r2="" r3="" r4=""
+# Renderiza una matriz 5x5 con sombra 3D ANSI (6 filas) para los estilos claude, hermes y shadow.
+sb_render_shaded_text() {
+  local text=$1
+  shift
+  local -a pal=("$@")
+  local -a grid0=() grid1=() grid2=() grid3=() grid4=()
   local i ch spec g0 g1 g2 g3 g4
   for (( i = 0; i < ${#text}; i++ )); do
     ch="${text:i:1}"
     spec="$(sb_glyph_rows "$ch")"
     IFS=':' read -r g0 g1 g2 g3 g4 <<<"$spec"
-    g0="${g0//#/$on}"; g0="${g0// /$off}"
-    g1="${g1//#/$on}"; g1="${g1// /$off}"
-    g2="${g2//#/$on}"; g2="${g2// /$off}"
-    g3="${g3//#/$on}"; g3="${g3// /$off}"
-    g4="${g4//#/$on}"; g4="${g4// /$off}"
-    r0+="${g0}  "
-    r1+="${g1}  "
-    r2+="${g2}  "
-    r3+="${g3}  "
-    r4+="${g4}  "
+    grid0+=("$g0")
+    grid1+=("$g1")
+    grid2+=("$g2")
+    grid3+=("$g3")
+    grid4+=("$g4")
   done
 
-  printf '\n'
-  printf '  \033[1;38;5;%sm%s\033[0m\n' "${pal[0]}" "$r0"
-  printf '  \033[1;38;5;%sm%s\033[0m\n' "${pal[1]}" "$r1"
-  printf '  \033[1;38;5;%sm%s\033[0m\n' "${pal[2]}" "$r2"
-  printf '  \033[1;38;5;%sm%s\033[0m\n' "${pal[3]}" "$r3"
-  printf '  \033[1;38;5;%sm%s\033[0m\n' "${pal[4]}" "$r4"
-  printf '\n'
+  # Construye cadenas binarias de 6 filas (fila 5 vacía para proyectar sombra inferior)
+  local b0="" b1="" b2="" b3="" b4="" b5=""
+  for (( i = 0; i < ${#text}; i++ )); do
+    b0+="${grid0[i]} "
+    b1+="${grid1[i]} "
+    b2+="${grid2[i]} "
+    b3+="${grid3[i]} "
+    b4+="${grid4[i]} "
+  done
+  local width=${#b0}
+  printf -v b5 '%*s' "$width" ""
+
+  local -a rows=("$b0" "$b1" "$b2" "$b3" "$b4" "$b5")
+  local r c cur prev_row prev_diag line
+  SB_SHADED_LINES=()
+  for (( r = 0; r < 6; r++ )); do
+    line=""
+    cur="${rows[r]}"
+    prev_row=""
+    (( r > 0 )) && prev_row="${rows[r-1]}"
+    for (( c = 0; c < width; c++ )); do
+      if [[ "${cur:c:1}" == "#" ]]; then
+        line+="\033[1;38;5;${pal[r]}m██"
+      elif (( r > 0 && c > 0 )) && [[ "${prev_row:c-1:1}" == "#" ]]; then
+        line+="\033[0;38;5;${pal[r]}m░░"
+      elif (( r > 0 )) && [[ "${prev_row:c:1}" == "#" ]]; then
+        line+="\033[0;38;5;${pal[r]}m▀▀"
+      elif (( c > 0 )) && [[ "${cur:c-1:1}" == "#" ]]; then
+        line+="\033[0;38;5;${pal[r]}m▌ "
+      else
+        line+="  "
+      fi
+    done
+    line+="\033[0m"
+    SB_SHADED_LINES+=("$line")
+  done
+}
+
+# Renderiza texto ($1) con color ($2: lime, cyan, rainbow, ...) y estilo ($3: claude | hermes | shadow | block | ascii).
+render_ascii_banner() {
+  local text="${1:-SERVER}" color="${2:-lime}" style="${3:-claude}"
+  text="$(printf '%s' "$text" | tr '[:lower:]' '[:upper:]')"
+
+  local -a pal
+  read -ra pal <<<"$(motd_palette "$color")"
+  local acc="${pal[0]}"
+
+  case "$style" in
+    claude)
+      (( ${#text} > 18 )) && text="${text:0:18}"
+      sb_render_shaded_text "$text" "${pal[@]}"
+      local -a m=(
+        "   \033[1;38;5;${pal[0]}m╭───────────╮\033[0m   "
+        "   \033[1;38;5;${pal[1]}m│  \033[1;97m▀▄   ▄▀\033[1;38;5;${pal[1]}m  │\033[0m   "
+        "   \033[1;38;5;${pal[2]}m│  \033[1;97m  ▀▀▀  \033[1;38;5;${pal[2]}m  │\033[0m   "
+        "   \033[1;38;5;${pal[3]}m╰──┬─────┬──╯\033[0m   "
+        "   \033[1;38;5;${pal[4]}m   │ \033[1;97m▛▀▜\033[1;38;5;${pal[4]}m │   \033[0m   "
+        "   \033[1;38;5;${pal[5]}m   ╰─┴─┴─╯   \033[0m   "
+      )
+      printf '\n'
+      local idx
+      for (( idx = 0; idx < 6; idx++ )); do
+        printf '%b%b\n' "${m[idx]}" "${SB_SHADED_LINES[idx]}"
+      done
+      printf '\n'
+      ;;
+
+    hermes)
+      (( ${#text} > 16 )) && text="${text:0:16}"
+      sb_render_shaded_text "$text" "${pal[@]}"
+      local -a h=(
+        "  \033[1;38;5;${pal[0]}m ╲╲╲  \033[1;97m╭───╮\033[1;38;5;${pal[0]}m  ╱╱╱ \033[0m  "
+        "  \033[1;38;5;${pal[1]}m  ╲╲╲ \033[1;97m╰─┬─╯\033[1;38;5;${pal[1]}m ╱╱╱  \033[0m  "
+        "  \033[1;38;5;${pal[2]}m   ╲╲\033[1;97m╭──┼──╮\033[1;38;5;${pal[2]}m╱╱   \033[0m  "
+        "  \033[1;38;5;${pal[3]}m     \033[1;97m╰──┼──╯\033[1;38;5;${pal[3]}m     \033[0m  "
+        "  \033[1;38;5;${pal[4]}m     \033[1;97m ╭─┼─╮ \033[1;38;5;${pal[4]}m     \033[0m  "
+        "  \033[1;38;5;${pal[5]}m     \033[1;97m ╰─┴─╯ \033[1;38;5;${pal[5]}m     \033[0m  "
+      )
+      printf '\n'
+      local idx
+      for (( idx = 0; idx < 6; idx++ )); do
+        printf '%b%b\n' "${h[idx]}" "${SB_SHADED_LINES[idx]}"
+      done
+      printf '\n'
+      ;;
+
+    shadow)
+      (( ${#text} > 22 )) && text="${text:0:22}"
+      sb_render_shaded_text "$text" "${pal[@]}"
+      printf '\n'
+      local idx
+      for (( idx = 0; idx < 6; idx++ )); do
+        printf '  %b\n' "${SB_SHADED_LINES[idx]}"
+      done
+      printf '\n'
+      ;;
+
+    block|ascii|*)
+      (( ${#text} > 26 )) && text="${text:0:26}"
+      local on="██" off="  "
+      if [[ "$style" == "ascii" ]]; then
+        on="##"
+      fi
+      local r0="" r1="" r2="" r3="" r4=""
+      local i ch spec g0 g1 g2 g3 g4
+      for (( i = 0; i < ${#text}; i++ )); do
+        ch="${text:i:1}"
+        spec="$(sb_glyph_rows "$ch")"
+        IFS=':' read -r g0 g1 g2 g3 g4 <<<"$spec"
+        g0="${g0//#/$on}"; g0="${g0// /$off}"
+        g1="${g1//#/$on}"; g1="${g1// /$off}"
+        g2="${g2//#/$on}"; g2="${g2// /$off}"
+        g3="${g3//#/$on}"; g3="${g3// /$off}"
+        g4="${g4//#/$on}"; g4="${g4// /$off}"
+        r0+="${g0}  "
+        r1+="${g1}  "
+        r2+="${g2}  "
+        r3+="${g3}  "
+        r4+="${g4}  "
+      done
+      printf '\n'
+      printf '  \033[1;38;5;%sm%s\033[0m\n' "${pal[0]}" "$r0"
+      printf '  \033[1;38;5;%sm%s\033[0m\n' "${pal[1]}" "$r1"
+      printf '  \033[1;38;5;%sm%s\033[0m\n' "${pal[2]}" "$r2"
+      printf '  \033[1;38;5;%sm%s\033[0m\n' "${pal[3]}" "$r3"
+      printf '  \033[1;38;5;%sm%s\033[0m\n' "${pal[4]}" "$r4"
+      printf '\n'
+      ;;
+  esac
 }
 
 # ------------------------------------------------------- Controles TUI puros ---
@@ -229,6 +336,7 @@ write_config_file() {
     printf '# Generado por server-bootstrap (%s)\n' "$(date -Iseconds 2>/dev/null || date)"
     printf '# Archivo cargado como shell: mantén permisos 600 y valores de confianza.\n\n'
     printf 'SERVER_HOSTNAME=%s\n' "$(shell_quote "$SERVER_HOSTNAME")"
+    printf 'SERVER_IP=%s\n' "$(shell_quote "${SERVER_IP:-}")"
     printf 'TIMEZONE=%s\n\n' "$(shell_quote "$TIMEZONE")"
     printf 'ADMIN_USER=%s\n' "$(shell_quote "$ADMIN_USER")"
     printf 'SUDO_MODE=%s\n' "$(shell_quote "$SUDO_MODE")"
@@ -249,7 +357,7 @@ write_config_file() {
     printf 'ENABLE_MOTD=%s\n' "$(shell_quote "${ENABLE_MOTD:-yes}")"
     printf 'MOTD_TEXT=%s\n' "$(shell_quote "${MOTD_TEXT:-}")"
     printf 'MOTD_COLOR=%s\n' "$(shell_quote "${MOTD_COLOR:-lime}")"
-    printf 'MOTD_ART_STYLE=%s\n\n' "$(shell_quote "${MOTD_ART_STYLE:-block}")"
+    printf 'MOTD_ART_STYLE=%s\n\n' "$(shell_quote "${MOTD_ART_STYLE:-claude}")"
     printf 'CONFIRM_SSH_HARDENING=%s\n' "$(shell_quote "${CONFIRM_SSH_HARDENING:-NO}")"
   } >"$tmp"
 
@@ -266,20 +374,25 @@ run_config_wizard() {
     source "$target" 2>/dev/null || true
   fi
 
-  local cur_host cur_tz cur_ip
+  local cur_host cur_srv_ip cur_tz cur_ip
   cur_host="${SERVER_HOSTNAME:-$(hostname -s 2>/dev/null || echo debian-server)}"
   valid_hostname "$cur_host" || cur_host="debian-server"
+  cur_srv_ip="${SERVER_IP:-$(detect_server_ip)}"
+  valid_single_ip "$cur_srv_ip" || cur_srv_ip=""
   cur_tz="${TIMEZONE:-UTC}"
   valid_timezone "$cur_tz" || cur_tz="UTC"
   cur_ip="$(client_ip)"
 
   tui_banner "Debian 13 Server Bootstrap — Asistente TUI" "Configuración guiada de sistema, seguridad, prompt y MOTD"
 
-  tui_section "1. Identidad del servidor"
+  tui_section "1. Identidad del servidor y /etc/hosts"
   tui_input "Hostname del servidor" "$cur_host" valid_hostname "Usa letras, números, puntos o guiones (ej. srv-prod-01)."
   SERVER_HOSTNAME="$TUI_REPLY"
 
-  tui_input "Zona horaria (IANA)" "$cur_tz" valid_timezone "Zona horaria no encontrada en /usr/share/zoneinfo (ej. America/Mexico_City o UTC)."
+  tui_input "IP pública del servidor para /etc/hosts" "$cur_srv_ip" valid_single_ip "Indica una dirección IPv4/IPv6 válida (no 127.x.x.x)."
+  SERVER_IP="$TUI_REPLY"
+
+  tui_input "Zona horaria (IANA)" "$cur_tz" valid_timezone "Zona horaria no encontrada en /usr/share/zoneinfo (ej. UTC o America/Mexico_City)."
   TIMEZONE="$TUI_REPLY"
 
   tui_section "2. Usuario administrativo y sudo"
@@ -385,7 +498,10 @@ run_config_wizard() {
       "rainbow|Gradiente Arcoíris neón"
     MOTD_COLOR="$TUI_REPLY"
 
-    tui_select "Estilo de bloques del ASCII Art" "${MOTD_ART_STYLE:-block}" \
+    tui_select "Nombre del diseño ASCII Art para el MOTD" "${MOTD_ART_STYLE:-claude}" \
+      "claude|Claude Code (emblema de terminal + tipografía ANSI con sombra 3D)" \
+      "hermes|Hermes Agent (emblema alado + tipografía ANSI con sombra 3D)" \
+      "shadow|ANSI Shadow 3D (tipografía con relieve y sombreado ▀ ▄ █ ░)" \
       "block|Bloques sólidos Unicode (██)" \
       "ascii|Caracteres ASCII clásicos (##)"
     MOTD_ART_STYLE="$TUI_REPLY"

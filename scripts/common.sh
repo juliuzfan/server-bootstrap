@@ -30,7 +30,7 @@ SB_LEGACY_SSH_DROPIN="/etc/ssh/sshd_config.d/00-bootstrap-hardening.conf"
 SB_LEGACY_F2B_JAIL="/etc/fail2ban/jail.d/sshd-bootstrap.local"
 
 SB_COLOR_NAMES="lime green cyan magenta pink orange yellow purple blue red rainbow synthwave toxic"
-SB_ART_STYLES="block ascii"
+SB_ART_STYLES="claude hermes shadow block ascii"
 
 # ---------------------------------------------------------------- salida ---
 if [[ -z "${NO_COLOR:-}" ]]; then
@@ -175,7 +175,21 @@ primary_ip() {
   local ip=""
   ip="$(ip -4 route get 1.1.1.1 2>/dev/null \
     | awk '{for (i = 1; i < NF; i++) if ($i == "src") {print $(i + 1); exit}}' || true)"
+  if [[ -z "$ip" ]] && command -v hostname >/dev/null 2>&1; then
+    ip="$(hostname -I 2>/dev/null | awk '{print $1}' || true)"
+  fi
   printf '%s' "${ip:-IP_DEL_SERVIDOR}"
+}
+
+# Detecta la IP pública/primaria del servidor (sin sufijo /CIDR).
+detect_server_ip() {
+  local ip=""
+  ip="$(ip -4 route get 1.1.1.1 2>/dev/null \
+    | awk '{for (i = 1; i < NF; i++) if ($i == "src") {print $(i + 1); exit}}' || true)"
+  if [[ -z "$ip" ]] && command -v hostname >/dev/null 2>&1; then
+    ip="$(hostname -I 2>/dev/null | awk '{print $1}' || true)"
+  fi
+  printf '%s' "$ip"
 }
 
 # IP del cliente SSH que ejecuta sudo (se conserva en utmp aunque sudo limpie el entorno).
@@ -302,6 +316,12 @@ valid_ip_list() {
   return 0
 }
 
+valid_single_ip() {
+  local ip=$1
+  [[ -z "$ip" ]] && return 0
+  [[ "$ip" =~ ^[0-9A-Fa-f:.]+$ && "$ip" == *[.:]* && "$ip" != 127.* && "$ip" != "::1" ]]
+}
+
 valid_time() {
   [[ "$1" =~ ^([01][0-9]|2[0-3]):[0-5][0-9]$ ]]
 }
@@ -348,6 +368,7 @@ load_config() {
 # Aplica valores por defecto, normaliza y valida. Deja las llaves en SB_KEYS.
 validate_config() {
   SERVER_HOSTNAME="${SERVER_HOSTNAME:-}"
+  SERVER_IP="${SERVER_IP:-}"
   TIMEZONE="${TIMEZONE:-UTC}"
   ADMIN_USER="${ADMIN_USER:-}"
   SUDO_MODE="${SUDO_MODE:-password}"
@@ -364,10 +385,11 @@ validate_config() {
   ENABLE_MOTD="${ENABLE_MOTD:-yes}"
   MOTD_TEXT="${MOTD_TEXT:-}"
   MOTD_COLOR="${MOTD_COLOR:-lime}"
-  MOTD_ART_STYLE="${MOTD_ART_STYLE:-block}"
+  MOTD_ART_STYLE="${MOTD_ART_STYLE:-claude}"
   CONFIRM_SSH_HARDENING="${CONFIRM_SSH_HARDENING:-NO}"
 
   valid_hostname "$SERVER_HOSTNAME" || die "SERVER_HOSTNAME no válido: '${SERVER_HOSTNAME}'."
+  valid_single_ip "$SERVER_IP" || die "SERVER_IP no válida: '${SERVER_IP}' (indica la IP pública/primaria del servidor o déjala vacía para autodetección)."
   valid_timezone "$TIMEZONE" || die "TIMEZONE no válida: '${TIMEZONE}' (ej.: America/Mexico_City)."
   valid_username "$ADMIN_USER" || die "ADMIN_USER no válido: '${ADMIN_USER}' (minúsculas, dígitos, _ o -; no root)."
   valid_sudo_mode "$SUDO_MODE" || die "SUDO_MODE debe ser password o nopasswd."
@@ -411,23 +433,23 @@ validate_config() {
   return 0
 }
 
-# Paleta: un color 256 por cada fila del banner (5 filas).
+# Paleta: un color 256 por cada fila del banner (hasta 6 filas).
 motd_palette() {
   case "$1" in
-    lime)      echo "118 118 118 118 118" ;;
-    green)     echo "46 46 46 46 46" ;;
-    cyan)      echo "51 51 51 51 51" ;;
-    magenta)   echo "201 201 201 201 201" ;;
-    pink)      echo "213 213 213 213 213" ;;
-    orange)    echo "208 208 208 208 208" ;;
-    yellow)    echo "226 226 226 226 226" ;;
-    purple)    echo "141 141 141 141 141" ;;
-    blue)      echo "39 39 39 39 39" ;;
-    red)       echo "196 196 196 196 196" ;;
-    rainbow)   echo "196 208 226 46 51" ;;
-    synthwave) echo "201 171 135 99 51" ;;
-    toxic)     echo "46 82 118 154 190" ;;
-    *)         echo "118 118 118 118 118" ;;
+    lime)      echo "118 118 118 118 118 118" ;;
+    green)     echo "46 46 46 46 46 46" ;;
+    cyan)      echo "51 51 51 51 51 51" ;;
+    magenta)   echo "201 201 201 201 201 201" ;;
+    pink)      echo "213 213 213 213 213 213" ;;
+    orange)    echo "208 208 208 208 208 208" ;;
+    yellow)    echo "226 226 226 226 226 226" ;;
+    purple)    echo "141 141 141 141 141 141" ;;
+    blue)      echo "39 39 39 39 39 39" ;;
+    red)       echo "196 196 196 196 196 196" ;;
+    rainbow)   echo "196 208 226 46 51 201" ;;
+    synthwave) echo "201 171 135 99 51 45" ;;
+    toxic)     echo "46 82 118 154 190 226" ;;
+    *)         echo "118 118 118 118 118 118" ;;
   esac
 }
 

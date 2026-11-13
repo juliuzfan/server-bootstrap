@@ -74,22 +74,46 @@ if [[ "$(hostnamectl --static 2>/dev/null || hostname)" != "$SERVER_HOSTNAME" ]]
   hostnamectl set-hostname "$SERVER_HOSTNAME"
 fi
 
-# Asegura que 127.0.1.1 resuelva el nuevo hostname para evitar avisos de sudo.
+# Asegura que /etc/hosts tenga 127.0.1.1 y la IP pública del servidor apuntando al hostname elegido.
 short_host="${SERVER_HOSTNAME%%.*}"
-hosts_entry="127.0.1.1	${SERVER_HOSTNAME}"
+host_names="$SERVER_HOSTNAME"
 if [[ "$short_host" != "$SERVER_HOSTNAME" ]]; then
-  hosts_entry="127.0.1.1	${SERVER_HOSTNAME} ${short_host}"
+  host_names="${SERVER_HOSTNAME} ${short_host}"
 fi
+
+effective_ip="${SERVER_IP:-$(detect_server_ip)}"
+if ! valid_single_ip "$effective_ip"; then
+  effective_ip=""
+fi
+
 tmp_hosts="$(mktemp)"
-if grep -Eq '^[[:space:]]*127\.0\.1\.1[[:space:]]' /etc/hosts; then
-  awk -v line="$hosts_entry" '
-    /^[[:space:]]*127\.0\.1\.1[[:space:]]/ && !done { print line; done = 1; next }
-    { print }
-  ' /etc/hosts >"$tmp_hosts"
-else
-  cat /etc/hosts >"$tmp_hosts"
-  printf '%s\n' "$hosts_entry" >>"$tmp_hosts"
-fi
+awk -v hnames="$host_names" -v pub_ip="$effective_ip" '
+  BEGIN { done_local = 0; done_pub = 0 }
+  /^[[:space:]]*127\.0\.1\.1[[:space:]]/ {
+    if (!done_local) {
+      printf "127.0.1.1\t%s\n", hnames
+      done_local = 1
+    }
+    next
+  }
+  pub_ip != "" && $1 == pub_ip {
+    if (!done_pub) {
+      printf "%s\t%s\n", pub_ip, hnames
+      done_pub = 1
+    }
+    next
+  }
+  /# server-bootstrap-host$/ { next }
+  { print }
+  END {
+    if (!done_local) {
+      printf "127.0.1.1\t%s\n", hnames
+    }
+    if (pub_ip != "" && !done_pub) {
+      printf "%s\t%s # server-bootstrap-host\n", pub_ip, hnames
+    }
+  }
+' /etc/hosts >"$tmp_hosts"
 install_if_changed "$tmp_hosts" /etc/hosts 644 || true
 
 log "Configurando usuario administrativo (${ADMIN_USER}) y acceso sudo (${SUDO_MODE})"

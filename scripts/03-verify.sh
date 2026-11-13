@@ -26,6 +26,12 @@ cur_host="$(hostnamectl --static 2>/dev/null || hostname)"
 cur_tz="$(timedatectl show -p Timezone --value 2>/dev/null || echo desconocido)"
 [[ "$cur_host" == "$SERVER_HOSTNAME" ]] && check_ok "Hostname: ${cur_host}" || check_fail "Hostname actual '${cur_host}' != '${SERVER_HOSTNAME}'"
 [[ "$cur_tz" == "$TIMEZONE" ]] && check_ok "Timezone: ${cur_tz}" || check_fail "Timezone actual '${cur_tz}' != '${TIMEZONE}'"
+srv_ip_check="${SERVER_IP:-$(detect_server_ip)}"
+if [[ -n "$srv_ip_check" ]] && grep -Eq "^[[:space:]]*${srv_ip_check//./\\.}[[:space:]]+.*\\b${SERVER_HOSTNAME//./\\.}\\b" /etc/hosts; then
+  check_ok "/etc/hosts: ${srv_ip_check} -> ${SERVER_HOSTNAME}"
+else
+  check_warn "/etc/hosts no contiene entrada para ${srv_ip_check:-IP_PUBLICA} -> ${SERVER_HOSTNAME}"
+fi
 systemctl is-active --quiet chrony && check_ok "chrony activo" || check_warn "chrony no está activo"
 
 echo
